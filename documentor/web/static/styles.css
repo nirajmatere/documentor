@@ -256,6 +256,11 @@ button:disabled {
     min-height: 0; /* Important for scrollable children */
 }
 
+.workspace-grid > .glass-panel {
+    min-height: 0;
+    max-height: 100%;
+}
+
 /* Sidebar */
 .docs-list {
     list-style: none;
