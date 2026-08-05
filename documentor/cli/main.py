@@ -1,6 +1,7 @@
 import typer
 import os
 import sys
+import importlib.metadata
 import uvicorn
 from pathlib import Path
 from dotenv import load_dotenv, set_key
@@ -14,6 +15,31 @@ import litellm
 app = typer.Typer(help="Documentor: Enterprise-grade AI documentation suite")
 CONFIG_DIR = Path.home() / ".documentor"
 CONFIG_FILE = CONFIG_DIR / "config.env"
+
+def version_callback(value: bool):
+    if value:
+        try:
+            version = importlib.metadata.version("documentor-ai")
+            typer.echo(f"Documentor version: {version}")
+        except importlib.metadata.PackageNotFoundError:
+            typer.echo("Documentor version: unknown (not installed as a package)")
+        raise typer.Exit()
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show the application's version and exit.",
+        callback=version_callback,
+        is_eager=True,
+    )
+):
+    """
+    Documentor: Enterprise-grade AI documentation suite.
+    """
+    pass
 
 def load_config():
     if CONFIG_FILE.exists():
