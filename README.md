@@ -113,7 +113,7 @@ jobs:
       - run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add docs/ ARCHITECTURE.md QUICKSTART.md
+          git add documentor_docs/
           git commit -m "docs: Auto-update AI documentation" || echo "No changes to commit"
           git push
 ```

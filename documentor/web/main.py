@@ -105,13 +105,7 @@ async def api_get_docs(path: str):
         raise HTTPException(status_code=400, detail="Provided path is not a valid directory.")
         
     docs = []
-    # Check top-level standard docs
-    for doc in ["ARCHITECTURE.md", "QUICKSTART.md"]:
-        if (target_path / doc).exists():
-            docs.append(doc)
-            
-    # Check docs/ folder
-    docs_dir = target_path / "docs"
+    docs_dir = target_path / "documentor_docs"
     if docs_dir.exists() and docs_dir.is_dir():
         for file in docs_dir.glob("**/*.md"):
             rel_path = file.relative_to(target_path)

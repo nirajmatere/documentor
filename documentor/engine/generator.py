@@ -71,7 +71,7 @@ It must include a Mermaid.js diagram illustrating the core interactions.
             if only_files and path not in only_files:
                 continue
                 
-            doc_path = f"docs/{path}.md"
+            doc_path = f"documentor_docs/{path}.md"
             
             if doc_path in skip_files:
                 if progress_callback: progress_callback(f"Skipping {path} (already generated)...")
@@ -139,20 +139,20 @@ CRITICAL RULE: DO NOT guess or hallucinate environment variables, dependencies, 
             skip_files = set()
 
         if not only_files:
-            if "ARCHITECTURE.md" not in skip_files:
+            if "documentor_docs/ARCHITECTURE.md" not in skip_files:
                 if progress_callback: progress_callback("Analyzing Architecture...")
                 graph = mapper.map_dependencies(parsed_data)
                 content = self.generate_architecture_overview(graph)
                 if write_callback:
-                    write_callback("ARCHITECTURE.md", content)
+                    write_callback("documentor_docs/ARCHITECTURE.md", content)
             elif progress_callback:
                 progress_callback("Skipping ARCHITECTURE.md (already generated)...")
                 
-            if "QUICKSTART.md" not in skip_files:
+            if "documentor_docs/QUICKSTART.md" not in skip_files:
                 if progress_callback: progress_callback("Writing Quickstart...")
                 content = self.generate_quickstart(vector_store)
                 if write_callback:
-                    write_callback("QUICKSTART.md", content)
+                    write_callback("documentor_docs/QUICKSTART.md", content)
             elif progress_callback:
                 progress_callback("Skipping QUICKSTART.md (already generated)...")
             

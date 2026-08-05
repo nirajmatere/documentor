@@ -131,8 +131,9 @@ def generate(
         # Build skip_files if resuming
         skip_files = set()
         if resume and not regenerate:
-            if target_path.exists():
-                for md_file in target_path.rglob("*.md"):
+            docs_dir = target_path / "documentor_docs"
+            if docs_dir.exists():
+                for md_file in docs_dir.rglob("*.md"):
                     rel_path = md_file.relative_to(target_path).as_posix()
                     skip_files.add(rel_path)
         
