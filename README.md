@@ -19,6 +19,17 @@ pip install documentor-ai
 ```
 *(Note: If you attempt this globally on newer Linux distributions without `pipx`, you will get an `externally-managed-environment` error. You can bypass this by appending `--break-system-packages`, though `pipx` is heavily preferred).*
 
+### Upgrading an Existing Installation
+To get the latest version (including new features like Interactive Chat), run the upgrade command corresponding to how you installed it:
+
+```bash
+# If you used pipx
+pipx upgrade documentor-ai
+
+# If you used standard pip
+pip install --upgrade documentor-ai
+```
+
 ## BYO-LLM (Bring Your Own LLM)
 Documentor uses LiteLLM under the hood, allowing you to use your preferred model (OpenAI, Anthropic, Gemini, DeepSeek, local models via Ollama, etc.).
 
