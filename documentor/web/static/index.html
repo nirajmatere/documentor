@@ -28,12 +28,7 @@
                 </div>
                 <div class="input-group">
                     <label for="model-select">LLM Model</label>
-                    <select id="model-select">
-                        <option value="gpt-4o-mini">GPT-4o Mini (Default)</option>
-                        <option value="gpt-4o">GPT-4o (Accurate)</option>
-                        <option value="gemini/gemini-1.5-pro">Gemini 1.5 Pro (Large Context)</option>
-                        <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
-                    </select>
+                    <input type="text" id="model-select" placeholder="e.g. gemini/gemini-1.5-flash-latest" value="gpt-4o-mini" required>
                 </div>
                 <button type="submit" id="generate-btn" class="primary-btn">
                     <span class="btn-text">Generate Docs</span>
