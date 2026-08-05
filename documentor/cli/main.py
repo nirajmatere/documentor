@@ -8,6 +8,7 @@ from dotenv import load_dotenv, set_key
 
 from documentor.engine.parser import ASTParser
 from documentor.engine.vectorizer import VectorStore
+from typing import List, Optional
 from documentor.engine.mapper import DependencyMapper
 from documentor.engine.generator import LLMGenerator
 import litellm
@@ -94,7 +95,8 @@ def generate(
     path: str = typer.Argument(..., help="Path to the repository to document"),
     model: str = typer.Option("gemini/gemini-3.6-flash", help="LiteLLM compatible model name"),
     regenerate: bool = typer.Option(False, "--regenerate", help="Force regenerate all documentation, overwriting existing files"),
-    resume: bool = typer.Option(True, "--resume", help="Skip already generated documentation files (default)")
+    resume: bool = typer.Option(True, "--resume", help="Skip already generated documentation files (default)"),
+    files: Optional[List[str]] = typer.Option(None, "--file", "-f", help="Specific files to regenerate documentation for (relative to repo path)")
 ):
     """
     Triggers the 4-step Core Engine to generate accurate documentation for the given path.
@@ -142,13 +144,16 @@ def generate(
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
             
+        target_files = set(files) if files else None
+
         generator.run_full_pipeline(
             parsed_data, 
             vector_store, 
             mapper, 
             progress_callback=print_progress,
             write_callback=write_file,
-            skip_files=skip_files
+            skip_files=skip_files,
+            only_files=target_files
         )
         print() # Add a newline after the progress loop is done
             

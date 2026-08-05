@@ -55,6 +55,12 @@ Generate for the current directory (`.`) using Google's fast Gemini Flash model:
 documentor generate . --model gemini/gemini-3.6-flash
 ```
 
+**Single/Multiple Specific Files:**
+If you only want to generate or regenerate documentation for specific files (for instance, if you only updated a few files in a large project), you can specify them using the `--file` or `-f` flag. This will skip `ARCHITECTURE.md` and `QUICKSTART.md` and only document the targeted files:
+```bash
+documentor generate . -f src/main.py -f src/utils.py
+```
+
 Generate using Anthropic's Claude:
 ```bash
 documentor generate . --model claude-3-5-sonnet-20240620

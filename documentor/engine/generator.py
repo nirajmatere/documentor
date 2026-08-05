@@ -56,7 +56,8 @@ It must include a Mermaid.js diagram illustrating the core interactions.
         parsed_data: Dict[str, Any], 
         progress_callback: Optional[Callable[[str], None]] = None,
         write_callback: Optional[Callable[[str, str], None]] = None,
-        skip_files: Optional[Set[str]] = None
+        skip_files: Optional[Set[str]] = None,
+        only_files: Optional[Set[str]] = None
     ) -> None:
         """
         Pass B: Iterates over the parsed data to write detailed guides for files.
@@ -66,6 +67,10 @@ It must include a Mermaid.js diagram illustrating the core interactions.
 
         for file_info in parsed_data.get("files", []):
             path = file_info["path"]
+            
+            if only_files and path not in only_files:
+                continue
+                
             doc_path = f"docs/{path}.md"
             
             if doc_path in skip_files:
@@ -124,7 +129,8 @@ CRITICAL RULE: DO NOT guess or hallucinate environment variables, dependencies, 
         mapper: Any, 
         progress_callback: Optional[Callable[[str], None]] = None,
         write_callback: Optional[Callable[[str, str], None]] = None,
-        skip_files: Optional[Set[str]] = None
+        skip_files: Optional[Set[str]] = None,
+        only_files: Optional[Set[str]] = None
     ) -> None:
         """
         Orchestrates all passes and uses write_callback to save files immediately.
@@ -132,21 +138,22 @@ CRITICAL RULE: DO NOT guess or hallucinate environment variables, dependencies, 
         if skip_files is None:
             skip_files = set()
 
-        if "ARCHITECTURE.md" not in skip_files:
-            if progress_callback: progress_callback("Analyzing Architecture...")
-            graph = mapper.map_dependencies(parsed_data)
-            content = self.generate_architecture_overview(graph)
-            if write_callback:
-                write_callback("ARCHITECTURE.md", content)
-        elif progress_callback:
-            progress_callback("Skipping ARCHITECTURE.md (already generated)...")
+        if not only_files:
+            if "ARCHITECTURE.md" not in skip_files:
+                if progress_callback: progress_callback("Analyzing Architecture...")
+                graph = mapper.map_dependencies(parsed_data)
+                content = self.generate_architecture_overview(graph)
+                if write_callback:
+                    write_callback("ARCHITECTURE.md", content)
+            elif progress_callback:
+                progress_callback("Skipping ARCHITECTURE.md (already generated)...")
+                
+            if "QUICKSTART.md" not in skip_files:
+                if progress_callback: progress_callback("Writing Quickstart...")
+                content = self.generate_quickstart(vector_store)
+                if write_callback:
+                    write_callback("QUICKSTART.md", content)
+            elif progress_callback:
+                progress_callback("Skipping QUICKSTART.md (already generated)...")
             
-        if "QUICKSTART.md" not in skip_files:
-            if progress_callback: progress_callback("Writing Quickstart...")
-            content = self.generate_quickstart(vector_store)
-            if write_callback:
-                write_callback("QUICKSTART.md", content)
-        elif progress_callback:
-            progress_callback("Skipping QUICKSTART.md (already generated)...")
-            
-        self.generate_module_guides(vector_store, parsed_data, progress_callback, write_callback, skip_files)
+        self.generate_module_guides(vector_store, parsed_data, progress_callback, write_callback, skip_files, only_files)
