@@ -13,10 +13,13 @@ from documentor.engine.mapper import DependencyMapper
 from documentor.engine.generator import LLMGenerator
 import litellm
 import warnings
+import logging
 
 # Suppress all warnings (e.g. LiteLLM deprecation warnings)
 warnings.simplefilter("ignore")
 litellm.suppress_debug_info = True
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+logging.getLogger("LiteLLMRouter").setLevel(logging.ERROR)
 
 app = typer.Typer(help="Documentor: Enterprise-grade AI documentation suite")
 CONFIG_DIR = Path.home() / ".documentor"
@@ -143,6 +146,10 @@ def generate(
             full_path.parent.mkdir(parents=True, exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
+            # Clear the active loading line and print completion
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+            typer.secho(f"  ✓ Completed {doc_path}", fg=typer.colors.GREEN)
             
         target_files = set(files) if files else None
 
