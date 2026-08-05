@@ -1,0 +1,54 @@
+# Project Context: "Documentor"
+You are tasked with building "Documentor," an enterprise-grade AI documentation suite. It ingests a codebase, parses it semantically, generates accurate documentation using LLMs, and serves it via CLI, Web UI, and CI/CD pipelines.
+
+## 1. Core Architecture (The Engine)
+The engine must process the codebase intelligently. Do NOT dump the entire repository into an LLM context window. Implement the following 4-step pipeline:
+
+*   **Step 1: AST Parsing & Tree Generation:** 
+    *   Traverse the repository.
+    *   Dynamically ignore `.gitignore` contents, dependencies (`node_modules`, `venv`), lockfiles, and binary assets.
+    *   Use AST parsing (e.g., `tree-sitter` or Python's `ast`) to map out imports, exports, API endpoints, and function/class signatures.
+*   **Step 2: Vectorization & Dependency Mapping:** 
+    *   Chunk the parsed code at the module and class level.
+    *   Determine how modules interact (e.g., build a graph showing "Controller calls Service which queries Database").
+    *   Store these chunks and graphs in a local lightweight vector database (e.g., ChromaDB or FAISS).
+*   **Step 3: Multi-Pass Generation (The LLM Pipeline):**
+    *   **Pass A (Architecture):** Generate a high-level system overview (include Mermaid.js diagrams if possible).
+    *   **Pass B (Module Level):** Iterate over the vector store to write detailed guides for individual subdirectories and core files.
+    *   **Pass C (Onboarding & Quickstart):** Extract environment variables, setup instructions, and run commands to create a `README.md` and `QUICKSTART.md`.
+*   **Step 4: Interactive Hub:** 
+    *   Render the structured output into a clean, searchable documentation format (Markdown files linked logically, or JSON for a frontend).
+
+## 2. Product Interfaces
+The project requires three primary interfaces built on top of the Core Engine:
+
+*   **1. CLI Utility (Command Line):**
+    *   Packaged via `pyproject.toml` so the user can run `pip install documentor`.
+    *   Commands required: 
+        *   `documentor generate <path>` (Triggers the 4-step engine).
+        *   `documentor chat "question"` (Retrieval-Augmented Generation using the terminal).
+        *   `documentor serve` (Spins up the Web UI locally).
+*   **2. Web App / Playground (UI):**
+    *   A local web server (e.g., FastAPI backend) serving a clean UI.
+    *   Features: View generated documentation, visually trigger new documentation generation, and a chat interface to ask questions to the AI regarding the codebase.
+*   **3. CI/CD Integration (GitHub App / Action):**
+    *   A Dockerized or Node.js/Python-based GitHub Action (`action.yml`).
+    *   Goal: Runs automatically on Pull Requests in private enterprise repos to update documentation or comment with an architectural summary of the PR.
+
+## 3. Tech Stack Preferences
+*   **Language:** Python 3.10+ (for Core Engine, CLI, and Web Backend).
+*   **CLI Framework:** Typer or Click.
+*   **Web Framework:** FastAPI (backend endpoints) + React/Next.js or plain HTML/Tailwind/JS (served statically for simplicity).
+*   **AI/LLM Orchestration:** LiteLLM or LangChain (to support multiple providers like OpenAI, Anthropic, or local Ollama).
+*   **Vector Database:** ChromaDB (local, file-based).
+
+## 4. Execution Plan
+Please implement this project step-by-step. Stop and ask for my review after completing each phase.
+
+*   **Phase 1:** Scaffold the project structure (`pyproject.toml`, folder hierarchy). Implement the AST parser and Vectorization logic (Core Engine Steps 1 & 2).
+*   **Phase 2:** Implement the Multi-Pass LLM Generation orchestration (Core Engine Step 3 & 4).
+*   **Phase 3:** Build the CLI interface (`typer` commands for generate and chat).
+*   **Phase 4:** Build the local Web UI (FastAPI server + frontend playground).
+*   **Phase 5:** Create the `.github/workflows/` templates and the GitHub Action wrapper.
+
+Let's begin with Phase 1. Please scaffold the project directory, write the `pyproject.toml`, and stub out the Core Engine classes.

@@ -1,0 +1,12 @@
+name: 'Documentor Generation'
+description: 'Automatically generate accurate documentation for your codebase using Documentor AI.'
+inputs:
+  model:
+    description: 'LiteLLM compatible model to use'
+    required: false
+    default: 'gpt-4o-mini'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.model }}

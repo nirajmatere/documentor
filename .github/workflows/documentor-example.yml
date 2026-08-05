@@ -1,0 +1,43 @@
+name: Documentor AI Generation
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  document:
+    runs-on: ubuntu-latest
+    
+    # We need contents: write to commit changes back to the PR
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so Documentor can analyze everything
+          fetch-depth: 0
+      
+      - name: Run Documentor Action
+        uses: ./ # Note: For external repos, this should be 'owner/documentor@main'
+        with:
+          model: 'gpt-4o-mini'
+        env:
+          # Important: Map your Repository Secrets to the environment variables expected by your chosen model
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      
+      - name: Commit Generated Documentation
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Add the generated artifacts
+          git add docs/ ARCHITECTURE.md QUICKSTART.md
+          
+          # Only commit if there are actually changes
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: Auto-update AI documentation [skip ci]"
+          git push
