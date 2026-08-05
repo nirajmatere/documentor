@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "documentor"
+name = "documentor-ai"
 version = "0.1.0"
 description = "Enterprise-grade AI documentation suite"
 readme = "README.md"
@@ -34,3 +34,6 @@ dependencies = [
 
 [project.scripts]
 documentor = "documentor.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["documentor"]
