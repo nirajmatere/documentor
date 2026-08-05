@@ -4,11 +4,20 @@ An enterprise-grade AI documentation suite. It ingests a codebase, parses it sem
 
 ## Installation
 
-You can install Documentor directly from GitHub using `pip`. This will install all dependencies and make the `documentor` CLI tool available globally on your machine.
+### Recommended Method (pipx)
+Because Documentor is a standalone CLI tool, the best way to install it on modern Linux/macOS systems (which enforce PEP 668) is using `pipx`. This installs Documentor in an isolated environment while exposing the CLI globally.
 
+```bash
+# If you don't have pipx installed: python3 -m pip install --user pipx
+pipx install git+https://github.com/nirajmatere/documentor.git
+```
+
+### Alternative Methods
+If you are inside an active virtual environment (like `.venv/`), you can use standard `pip`:
 ```bash
 pip install git+https://github.com/nirajmatere/documentor.git
 ```
+*(Note: If you attempt this globally on newer Linux distributions without `pipx`, you will get an `externally-managed-environment` error. You can bypass this by appending `--break-system-packages`, though `pipx` is heavily preferred).*
 
 ## BYO-LLM (Bring Your Own LLM)
 Documentor uses LiteLLM under the hood, allowing you to use your preferred model (OpenAI, Anthropic, Gemini, DeepSeek, local models via Ollama, etc.).
