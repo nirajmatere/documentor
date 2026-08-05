@@ -24,7 +24,6 @@ dependencies = [
     "tree-sitter-typescript>=0.21.0",
     "tree-sitter-java>=0.21.0",
     "tree-sitter-rust>=0.21.0",
-    "tree-sitter-r>=0.21.0",
     "tree-sitter-cpp>=0.21.0",
     "tree-sitter-c>=0.21.0",
     "tree-sitter-c-sharp>=0.21.0",
