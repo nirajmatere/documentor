@@ -1,4 +1,4 @@
-name: 'Documentor Generation'
+name: 'documentor-ai'
 description: 'Automatically generate accurate documentation for your codebase using Documentor AI.'
 inputs:
   model:
