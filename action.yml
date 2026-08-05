@@ -10,3 +10,7 @@ runs:
   image: 'Dockerfile'
   args:
     - ${{ inputs.model }}
+
+branding:
+  icon: 'book-open'
+  color: 'blue'
