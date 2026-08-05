@@ -33,13 +33,13 @@ documentor configure
 ### 1. Command Line Interface (CLI)
 To generate documentation for a repository, run:
 ```bash
-documentor generate /path/to/your/repo --model gpt-4o-mini
+documentor generate /path/to/your/repo --model gemini/gemini-3.6-flash
 ```
 
 **More Examples:**
 Generate for the current directory (`.`) using Google's fast Gemini Flash model:
 ```bash
-documentor generate . --model gemini/gemini-1.5-flash-latest
+documentor generate . --model gemini/gemini-3.6-flash
 ```
 
 Generate using Anthropic's Claude:
@@ -47,9 +47,9 @@ Generate using Anthropic's Claude:
 documentor generate . --model claude-3-5-sonnet-20240620
 ```
 
-Once the repository is indexed, you can chat with your codebase using RAG:
+Once the repository is indexed, you can chat with your codebase using RAG. If you don't provide a question, it starts an interactive chat loop!
 ```bash
-documentor chat "How does the authentication system work?" --path . --model gemini/gemini-1.5-flash-latest
+documentor chat --path . --model gemini/gemini-3.6-flash
 ```
 
 ### 2. Web UI (Playground)
@@ -78,9 +78,9 @@ jobs:
           fetch-depth: 0
       - uses: nirajmatere/documentor@main
         with:
-          model: 'gpt-4o-mini'
+          model: 'gemini/gemini-3.6-flash'
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'

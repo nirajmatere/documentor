@@ -60,7 +60,7 @@ def configure():
 
 @app.command()
 def generate(path: str = typer.Argument(..., help="Path to the repository to document"),
-             model: str = typer.Option("gpt-4o-mini", help="LiteLLM compatible model name")):
+             model: str = typer.Option("gemini/gemini-3.6-flash", help="LiteLLM compatible model name")):
     """
     Triggers the 4-step Core Engine to generate accurate documentation for the given path.
     """
@@ -109,9 +109,9 @@ def generate(path: str = typer.Argument(..., help="Path to the repository to doc
         raise typer.Exit(1)
 
 @app.command()
-def chat(question: str = typer.Argument(..., help="Question to ask about the codebase"),
+def chat(question: str = typer.Argument(None, help="Question to ask about the codebase. If omitted, starts an interactive chat."),
          path: str = typer.Option(".", help="Path to the repository"),
-         model: str = typer.Option("gpt-4o-mini", help="LiteLLM compatible model name")):
+         model: str = typer.Option("gemini/gemini-3.6-flash", help="LiteLLM compatible model name")):
     """
     Retrieval-Augmented Generation (RAG) query against the codebase.
     """
@@ -127,32 +127,44 @@ def chat(question: str = typer.Argument(..., help="Question to ask about the cod
             
         vector_store = VectorStore(str(vector_db_path))
         
-        typer.echo("Searching codebase...")
-        results = vector_store.retrieve(question, n_results=5)
-        
-        context = ""
-        if results and results.get('documents') and len(results['documents']) > 0:
-            context = "\n---\n".join(results['documents'][0])
+        def run_query(q):
+            typer.echo("\nSearching codebase...")
+            results = vector_store.retrieve(q, n_results=5)
             
-        prompt = f"""
+            context = ""
+            if results and results.get('documents') and len(results['documents']) > 0:
+                context = "\n---\n".join(results['documents'][0])
+                
+            prompt = f"""
 You are an expert developer assistant. Answer the user's question based strictly on the following codebase snippets.
 
 Context Snippets:
 {context}
 
-Question: {question}
+Question: {q}
 
 CRITICAL RULE: DO NOT hallucinate. If the answer is not in the context, tell the user you don't know based on the parsed code.
 """
-        typer.echo("Generating answer...")
-        response = litellm.completion(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
-        )
-        
-        typer.echo("\n--- Answer ---\n")
-        typer.echo(response.choices[0].message.content)
+            typer.echo("Generating answer...")
+            response = litellm.completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0
+            )
+            
+            typer.echo("\n--- Answer ---\n")
+            typer.echo(response.choices[0].message.content)
+            typer.echo("\n")
+
+        if question is None:
+            typer.secho(f"Starting interactive chat (Model: {model}). Type 'exit' or 'quit' to end.\n", fg=typer.colors.CYAN)
+            while True:
+                user_q = typer.prompt("You")
+                if user_q.lower() in ["exit", "quit"]:
+                    break
+                run_query(user_q)
+        else:
+            run_query(question)
         
     except litellm.exceptions.APIError as e:
         handle_litellm_error(e)
