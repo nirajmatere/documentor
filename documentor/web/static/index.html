@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentor | Enterprise AI</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -15,33 +15,17 @@
     </div>
 
     <main class="container">
-        <header>
-            <h1>Documentor</h1>
+        <header style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px;">
+            <h1 style="margin: 0;">Documentor</h1>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" id="toggle-theme-btn" class="secondary-btn" style="height: fit-content;">
+                    <span class="btn-text">🌓 Theme</span>
+                </button>
+                <button type="button" id="toggle-chat-btn" class="secondary-btn" style="height: fit-content;">
+                    <span class="btn-text">💬 Chat with AI</span>
+                </button>
+            </div>
         </header>
-
-        <section class="glass-panel" id="controls-section">
-            <form id="generate-form" class="controls-form">
-                <div class="input-group">
-                    <label for="repo-path">Repository Path</label>
-                    <input type="text" id="repo-path" placeholder="/home/user/projects/my-app" required>
-                </div>
-                <div class="input-group">
-                    <label for="model-select">LLM Model</label>
-                    <input type="text" id="model-select" placeholder="e.g. gemini/gemini-3.6-flash" value="gemini/gemini-3.6-flash" required>
-                </div>
-                <div class="button-group">
-                    <button type="submit" id="generate-btn" class="primary-btn">
-                        <span class="btn-text">Generate Docs</span>
-                        <span class="loader hidden"></span>
-                    </button>
-                    <button type="button" id="load-btn" class="secondary-btn">
-                        <span class="btn-text">Load Existing</span>
-                        <span class="loader hidden"></span>
-                    </button>
-                </div>
-            </form>
-            <div id="generate-result" class="message hidden"></div>
-        </section>
 
         <div class="workspace-grid">
             <!-- Left: Sidebar -->
@@ -60,12 +44,15 @@
                 </div>
             </section>
 
-            <!-- Right: Chat -->
-            <section class="glass-panel" id="chat-section">
-                <h3>Chat with Codebase</h3>
+            <!-- Right: Chat Window -->
+            <aside class="glass-panel hidden" id="chat-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Chat with Codebase</h3>
+                    <button type="button" id="fullscreen-chat-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Toggle Fullscreen">⛶</button>
+                </div>
                 <div class="chat-container">
                     <div id="chat-history" class="chat-history">
-                        <div class="chat-msg system">Run generation or load an existing path, then ask me anything!</div>
+                        <div class="chat-msg system">Ask me anything about this documentation</div>
                     </div>
                     <form id="chat-form" class="chat-input-area">
                         <input type="text" id="chat-input" placeholder="How does the auth flow work?" required>
@@ -76,6 +63,6 @@
         </div>
     </main>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>

@@ -163,13 +163,14 @@ class ASTParser:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 code = f.read()
+                code_bytes = code.encode("utf-8")
         except UnicodeDecodeError:
             return None
             
-        tree = parser.parse(bytes(code, "utf8"))
+        tree = parser.parse(code_bytes)
         
         chunks = []
-        self._extract_chunks(tree.root_node, code, chunks)
+        self._extract_chunks(tree.root_node, code_bytes, chunks)
         
         # If no specific chunks found, store the whole file as one chunk
         if not chunks:
@@ -186,27 +187,27 @@ class ASTParser:
             "chunks": chunks
         }
 
-    def _extract_chunks(self, node, code: str, chunks: List[Dict[str, Any]]):
+    def _extract_chunks(self, node, code_bytes: bytes, chunks: List[Dict[str, Any]]):
         node_type = node.type
         
         if "class_definition" in node_type or "class_declaration" in node_type or "type_declaration" in node_type:
             chunks.append({
                 "type": "class",
-                "name": self._get_node_name(node, code),
-                "content": code[node.start_byte:node.end_byte]
+                "name": self._get_node_name(node, code_bytes),
+                "content": code_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
             })
         elif "function_definition" in node_type or "function_declaration" in node_type or "method_definition" in node_type:
             chunks.append({
                 "type": "function",
-                "name": self._get_node_name(node, code),
-                "content": code[node.start_byte:node.end_byte]
+                "name": self._get_node_name(node, code_bytes),
+                "content": code_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
             })
         else:
             for child in node.children:
-                self._extract_chunks(child, code, chunks)
+                self._extract_chunks(child, code_bytes, chunks)
                 
-    def _get_node_name(self, node, code: str) -> str:
+    def _get_node_name(self, node, code_bytes: bytes) -> str:
         for child in node.children:
             if child.type == "identifier" or child.type == "name":
-                return code[child.start_byte:child.end_byte]
+                return code_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
         return "unknown"

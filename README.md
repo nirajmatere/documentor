@@ -33,26 +33,26 @@ pip install --upgrade documentor-ai
 ## BYO-LLM (Bring Your Own LLM)
 Documentor uses LiteLLM under the hood, allowing you to use your preferred model (OpenAI, Anthropic, Gemini, DeepSeek, local models via Ollama, etc.).
 
-Run the interactive setup command to configure your API keys:
+Run the interactive setup command to configure your default model and API keys:
 ```bash
 documentor configure
 ```
-*(Alternatively, you can just export your keys directly in your terminal, e.g. `export OPENAI_API_KEY="sk-..."`)*
+*(You will be prompted for `MODEL_NAME`, `GEMINI_API_KEY`, etc. You can just press Enter to leave them empty or fall back to the default `gemini/gemini-3.6-flash`)*
 
 ## Usage
 
 ### 1. Command Line Interface (CLI)
 To generate documentation for a repository, run:
 ```bash
-documentor generate /path/to/your/repo --model gemini/gemini-3.6-flash
+documentor generate /path/to/your/repo
 ```
 
 > **Note on Parsing:** Documentor automatically ignores `node_modules`, `dist`, `.env` files, logs, and all `.git` ignored files by default. If you want to force Documentor to ignore specific files or folders, just create a `.docignore` file in the root of your project!
 
 **More Examples:**
-Generate for the current directory (`.`) using Google's fast Gemini Flash model:
+Generate for the current directory (`.`) using your configured model:
 ```bash
-documentor generate . --model gemini/gemini-3.6-flash
+documentor generate .
 ```
 
 **Single/Multiple Specific Files:**
@@ -61,7 +61,7 @@ If you only want to generate or regenerate documentation for specific files (for
 documentor generate . -f src/main.py -f src/utils.py
 ```
 
-Generate using Anthropic's Claude:
+Generate using Anthropic's Claude (by overriding your default model):
 ```bash
 documentor generate . --model claude-3-5-sonnet-20240620
 ```
@@ -72,21 +72,23 @@ Once the repository is indexed, you can ask questions about your codebase.
 **Interactive Chat Mode (Recommended):**
 If you run `chat` without providing a specific question, it will drop you into an interactive terminal where you can chat continuously!
 ```bash
-documentor chat --path . --model gemini/gemini-3.6-flash
+documentor chat --path .
 ```
 
 **Single Question Mode:**
 If you just want a quick answer, you can provide the question directly:
 ```bash
-documentor chat "How does the authentication system work?" --path . --model gemini/gemini-3.6-flash
+documentor chat "How does the authentication system work?" --path .
 ```
+
+> **Note:** The AI assistant is strictly locked down to only answer questions about your documentation. It will politely decline requests to find bugs or answer off-topic queries!
 
 ### 3. Web UI (Playground)
 Prefer a visual interface? Spin up the beautifully designed, glassmorphic Web UI:
 ```bash
 documentor serve --port 8000
 ```
-Then open `http://localhost:8000` in your browser.
+Then open `http://localhost:8000` in your browser. The Web UI will automatically load the documentation for your current directory (`.`). It also features a **Fullscreen AI Chat** and a **Light/Dark Theme** toggle!
 
 ### 3. GitHub Action (CI/CD)
 Documentor comes packaged as a lightning-fast Docker Action. You can automate documentation generation on your Pull Requests by creating `.github/workflows/documentor.yml` in your target repository:
@@ -106,14 +108,14 @@ jobs:
         with:
           fetch-depth: 0
       - uses: nirajmatere/documentor@main
-        with:
-          model: 'gemini/gemini-3.6-flash'
         env:
+          # Define your model and map secrets appropriately
+          MODEL_NAME: 'gemini/gemini-3.6-flash'
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add documentor_docs/
-          git commit -m "docs: Auto-update AI documentation" || echo "No changes to commit"
+          git diff --quiet && git diff --staged --quiet || git commit -m "docs: Auto-update AI documentation"
           git push
 ```

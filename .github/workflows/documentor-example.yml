@@ -22,10 +22,12 @@ jobs:
       
       - name: Run Documentor Action
         uses: ./ # Note: For external repos, this should be 'owner/documentor@main'
-        with:
-          model: 'gpt-4o-mini'
+        # with:
+        #   model: 'gpt-4o-mini'
         env:
           # Important: Map your Repository Secrets to the environment variables expected by your chosen model
+          # The default model is gemini/gemini-3.6-flash. If you are using OpenAI, set MODEL_NAME explicitly:
+          MODEL_NAME: 'gpt-4o-mini'
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -36,7 +38,7 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
           # Add the generated artifacts
-          git add docs/ ARCHITECTURE.md QUICKSTART.md
+          git add documentor_docs/
           
           # Only commit if there are actually changes
           git diff --quiet && git diff --staged --quiet || git commit -m "docs: Auto-update AI documentation [skip ci]"

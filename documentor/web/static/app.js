@@ -1,18 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const generateForm = document.getElementById('generate-form');
-    const generateBtn = document.getElementById('generate-btn');
-    const loadBtn = document.getElementById('load-btn');
-    const btnText = generateBtn.querySelector('.btn-text');
-    const loader = generateBtn.querySelector('.loader');
-    const loadLoader = loadBtn.querySelector('.loader');
-    const generateResult = document.getElementById('generate-result');
-    
     const docsList = document.getElementById('docs-list');
     const viewerContent = document.getElementById('viewer-content');
     
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
     const chatHistory = document.getElementById('chat-history');
+    
+    const toggleChatBtn = document.getElementById('toggle-chat-btn');
+    const chatSection = document.getElementById('chat-section');
+    const workspaceGrid = document.querySelector('.workspace-grid');
+    
+    const toggleThemeBtn = document.getElementById('toggle-theme-btn');
+    const fullscreenChatBtn = document.getElementById('fullscreen-chat-btn');
+    
+    // Theme toggle
+    if (localStorage.getItem('theme') === 'light') {
+        document.documentElement.classList.add('light-mode');
+    }
+    
+    toggleThemeBtn.addEventListener('click', () => {
+        document.documentElement.classList.toggle('light-mode');
+        localStorage.setItem('theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark');
+    });
+
+    fullscreenChatBtn.addEventListener('click', () => {
+        workspaceGrid.classList.toggle('chat-fullscreen');
+    });
+    
+    toggleChatBtn.addEventListener('click', () => {
+        chatSection.classList.toggle('hidden');
+        if (chatSection.classList.contains('hidden')) {
+            workspaceGrid.classList.remove('chat-open');
+            workspaceGrid.classList.remove('chat-fullscreen');
+        } else {
+            workspaceGrid.classList.add('chat-open');
+        }
+    });
     
     // Configure marked for security
     marked.setOptions({
@@ -21,26 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
         breaks: true
     });
 
-    // Helper to show messages in generate section
-    function showMessage(msg, isError = false) {
-        generateResult.textContent = msg;
-        generateResult.className = `message ${isError ? 'error' : 'success'}`;
-        generateResult.classList.remove('hidden');
-    }
-
     // Load Existing Docs
     async function loadDocs() {
-        const repoPath = document.getElementById('repo-path').value.trim();
-        if (!repoPath) {
-            showMessage("Please enter a Repository Path first.", true);
-            return;
-        }
-
-        const btnTextLoad = loadBtn.querySelector('.btn-text');
-        loadBtn.disabled = true;
-        btnTextLoad.textContent = 'Loading...';
-        loadLoader.classList.remove('hidden');
-
+        const repoPath = ".";
         try {
             const response = await fetch(`/api/docs?path=${encodeURIComponent(repoPath)}`);
             const data = await response.json();
@@ -56,26 +62,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Helper to build tree
+            const tree = {};
             data.docs.forEach(doc => {
-                const li = document.createElement('li');
-                li.textContent = doc;
-                li.addEventListener('click', () => {
-                    document.querySelectorAll('.docs-list li').forEach(el => el.classList.remove('active'));
-                    li.classList.add('active');
-                    loadDocContent(repoPath, doc);
-                });
-                docsList.appendChild(li);
+                const parts = doc.split('/');
+                let current = tree;
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (!current[part]) {
+                        current[part] = (i === parts.length - 1) ? doc : {};
+                    }
+                    current = current[part];
+                }
             });
+
+            function renderTree(node, parentEl) {
+                const ul = document.createElement('ul');
+                ul.className = parentEl === docsList ? 'tree-root' : 'tree-nested';
+                
+                for (const key of Object.keys(node).sort()) {
+                    const li = document.createElement('li');
+                    
+                    if (typeof node[key] === 'string') {
+                        // File
+                        li.className = 'tree-file';
+                        li.textContent = '📄 ' + key;
+                        li.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            document.querySelectorAll('.docs-list .tree-file').forEach(el => el.classList.remove('active'));
+                            li.classList.add('active');
+                            loadDocContent(repoPath, node[key]);
+                        });
+                    } else {
+                        // Folder
+                        li.className = 'tree-folder';
+                        li.innerHTML = `<span>📂 ${key}</span>`;
+                        const childUl = renderTree(node[key], li);
+                        li.appendChild(childUl);
+                        
+                        li.querySelector('span').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            childUl.classList.toggle('hidden');
+                            const span = li.querySelector('span');
+                            if(childUl.classList.contains('hidden')) {
+                                span.textContent = '📁 ' + key;
+                            } else {
+                                span.textContent = '📂 ' + key;
+                            }
+                        });
+                    }
+                    ul.appendChild(li);
+                }
+                return ul;
+            }
+
+            docsList.innerHTML = '';
+            docsList.appendChild(renderTree(tree, docsList));
             
             // Auto-load first doc
-            docsList.firstChild.click();
+            const firstFile = docsList.querySelector('.tree-file');
+            if (firstFile) firstFile.click();
 
         } catch (err) {
             docsList.innerHTML = `<li class="empty-state" style="color:var(--error)">${err.message}</li>`;
-        } finally {
-            loadBtn.disabled = false;
-            btnTextLoad.textContent = 'Load Existing';
-            loadLoader.classList.add('hidden');
         }
     }
 
@@ -96,63 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    loadBtn.addEventListener('click', loadDocs);
-
-    // Handle Generation
-    generateForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        // If the event was triggered by the submit button
-        if (e.submitter && e.submitter.id === 'load-btn') return;
-
-        const repoPath = document.getElementById('repo-path').value;
-        const model = document.getElementById('model-select').value;
-        
-        // UI Loading State
-        generateBtn.disabled = true;
-        btnText.textContent = 'Generating... (This may take a minute)';
-        loader.classList.remove('hidden');
-        generateResult.classList.add('hidden');
-        
-        try {
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: repoPath, model: model })
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.detail || 'Failed to generate documentation.');
-            }
-            
-            showMessage(data.message);
-            // Automatically load the newly generated docs
-            loadDocs();
-        } catch (err) {
-            showMessage(err.message, true);
-        } finally {
-            // Restore UI
-            generateBtn.disabled = false;
-            btnText.textContent = 'Generate Docs';
-            loader.classList.add('hidden');
-        }
-    });
+    // Auto load docs on start
+    loadDocs();
 
     // Handle Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const query = chatInput.value.trim();
-        const repoPath = document.getElementById('repo-path').value;
-        const model = document.getElementById('model-select').value;
+        const repoPath = ".";
+        const model = ""; // We'll let the backend use the environment default
         
         if (!query) return;
-        if (!repoPath) {
-            alert('Please enter a Repository Path above first.');
-            return;
-        }
         
         // Add User Message
         appendMessage('user', query, false);

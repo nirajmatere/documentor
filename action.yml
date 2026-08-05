@@ -4,7 +4,7 @@ inputs:
   model:
     description: 'LiteLLM compatible model to use'
     required: false
-    default: 'gpt-4o-mini'
+    default: ''
 runs:
   using: 'docker'
   image: 'Dockerfile'

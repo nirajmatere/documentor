@@ -9,7 +9,7 @@ class LLMGenerator:
     Uses LiteLLM to orchestrate multiple LLM passes for generating documentation.
     Users can bring their own API keys by setting standard environment variables.
     """
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.0):
+    def __init__(self, model: str, temperature: float = 0.0):
         self.model = model
         self.temperature = temperature # Default to 0.0 for maximum determinism and accuracy
 
