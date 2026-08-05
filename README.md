@@ -9,13 +9,13 @@ Because Documentor is a standalone CLI tool, the best way to install it on moder
 
 ```bash
 # If you don't have pipx installed: python3 -m pip install --user pipx
-pipx install git+https://github.com/nirajmatere/documentor.git
+pipx install documentor-ai
 ```
 
 ### Alternative Methods
 If you are inside an active virtual environment (like `.venv/`), you can use standard `pip`:
 ```bash
-pip install git+https://github.com/nirajmatere/documentor.git
+pip install documentor-ai
 ```
 *(Note: If you attempt this globally on newer Linux distributions without `pipx`, you will get an `externally-managed-environment` error. You can bypass this by appending `--break-system-packages`, though `pipx` is heavily preferred).*
 
