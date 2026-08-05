@@ -51,13 +51,27 @@ async def api_generate(req: GenerateRequest):
         mapper = DependencyMapper()
         generator = LLMGenerator(model=req.model, temperature=0.0)
         
-        docs = generator.run_full_pipeline(parsed_data, vector_store, mapper)
-        
-        for doc_path, content in docs.items():
+        def write_file(doc_path: str, content: str):
             full_path = target_path / doc_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
+                
+        # Build skip_files to support resume in Web UI
+        skip_files = set()
+        docs_dir = target_path / "documentor_docs"
+        if docs_dir.exists():
+            for md_file in docs_dir.rglob("*.md"):
+                rel_path = md_file.relative_to(target_path).as_posix()
+                skip_files.add(rel_path)
+        
+        generator.run_full_pipeline(
+            parsed_data, 
+            vector_store, 
+            mapper,
+            write_callback=write_file,
+            skip_files=skip_files
+        )
                 
         return {"status": "success", "message": "Documentation generated successfully!"}
     except Exception as e:
