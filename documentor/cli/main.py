@@ -11,6 +11,11 @@ from documentor.engine.vectorizer import VectorStore
 from documentor.engine.mapper import DependencyMapper
 from documentor.engine.generator import LLMGenerator
 import litellm
+import warnings
+
+# Suppress all warnings (e.g. LiteLLM deprecation warnings)
+warnings.simplefilter("ignore")
+litellm.suppress_debug_info = True
 
 app = typer.Typer(help="Documentor: Enterprise-grade AI documentation suite")
 CONFIG_DIR = Path.home() / ".documentor"
@@ -114,7 +119,13 @@ def generate(path: str = typer.Argument(..., help="Path to the repository to doc
         typer.echo(f"Step 3: Generating documentation (Model: {model}) ...")
         generator = LLMGenerator(model=model, temperature=0.0)
         
-        docs = generator.run_full_pipeline(parsed_data, vector_store, mapper)
+        def print_progress(msg):
+            # Print on a single line and overwrite
+            sys.stdout.write(f"\r\033[K  - {msg}")
+            sys.stdout.flush()
+            
+        docs = generator.run_full_pipeline(parsed_data, vector_store, mapper, progress_callback=print_progress)
+        print() # Add a newline after the progress loop is done
         
         typer.echo("Step 4: Writing files ...")
         for doc_path, content in docs.items():
@@ -122,7 +133,6 @@ def generate(path: str = typer.Argument(..., help="Path to the repository to doc
             full_path.parent.mkdir(parents=True, exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            typer.echo(f"  - Created {doc_path}")
             
         typer.secho("Documentation generation complete!", fg=typer.colors.GREEN)
         

@@ -34,7 +34,7 @@ It must include a Mermaid.js diagram illustrating the core interactions.
         )
         return response.choices[0].message.content
 
-    def generate_module_guides(self, vector_store: Any, parsed_data: Dict[str, Any]) -> Dict[str, str]:
+    def generate_module_guides(self, vector_store: Any, parsed_data: Dict[str, Any], progress_callback=None) -> Dict[str, str]:
         """
         Pass B: Iterates over the parsed data to write detailed guides for files.
         """
@@ -59,6 +59,9 @@ Code:
 CRITICAL RULE: DO NOT hallucinate or invent features, methods, or logic that does not exist in the code snippet provided. Only explain what is strictly present in the code. Your primary objective is 100% accurate documentation.
 Explain its purpose, key components, and how it works. Use Markdown format.
 """
+            if progress_callback:
+                progress_callback(f"Documenting {path}...")
+                
             response = litellm.completion(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
@@ -93,18 +96,20 @@ CRITICAL RULE: DO NOT guess or hallucinate environment variables, dependencies, 
         )
         return response.choices[0].message.content
 
-    def run_full_pipeline(self, parsed_data: Dict[str, Any], vector_store: Any, mapper: Any) -> Dict[str, str]:
+    def run_full_pipeline(self, parsed_data: Dict[str, Any], vector_store: Any, mapper: Any, progress_callback=None) -> Dict[str, str]:
         """
         Orchestrates all passes. Returns a dictionary of filename -> markdown content.
         """
         results = {}
         
+        if progress_callback: progress_callback("Analyzing Architecture...")
         graph = mapper.map_dependencies(parsed_data)
         results["ARCHITECTURE.md"] = self.generate_architecture_overview(graph)
         
+        if progress_callback: progress_callback("Writing Quickstart...")
         results["QUICKSTART.md"] = self.generate_quickstart(vector_store)
         
-        guides = self.generate_module_guides(vector_store, parsed_data)
+        guides = self.generate_module_guides(vector_store, parsed_data, progress_callback)
         for path, content in guides.items():
             results[f"docs/{path}.md"] = content
             
