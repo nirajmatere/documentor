@@ -1,6 +1,7 @@
-from typing import Dict, Any
+from typing import Dict, Any, Set, Callable, Optional
 import litellm
 import json
+import time
 
 class LLMGenerator:
     """
@@ -11,6 +12,26 @@ class LLMGenerator:
     def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.0):
         self.model = model
         self.temperature = temperature # Default to 0.0 for maximum determinism and accuracy
+
+    def _call_llm_with_retry(self, prompt: str, max_retries: int = 5) -> str:
+        """Wraps litellm.completion with exponential backoff for rate limits/high demand."""
+        for attempt in range(max_retries):
+            try:
+                response = litellm.completion(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=self.temperature
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                error_msg = str(e).lower()
+                # Check for rate limits, high demand, or 429
+                if "rate limit" in error_msg or "high demand" in error_msg or "429" in error_msg or "too many requests" in error_msg:
+                    if attempt < max_retries - 1:
+                        sleep_time = 2 ** attempt
+                        time.sleep(sleep_time)
+                        continue
+                raise e
 
     def generate_architecture_overview(self, graph: Dict[str, Any]) -> str:
         """
@@ -27,20 +48,30 @@ Please write a comprehensive ARCHITECTURE.md file.
 CRITICAL RULE: DO NOT hallucinate features, dependencies, or components that are not explicitly present in the provided graph. Your primary objective is 100% accuracy.
 It must include a Mermaid.js diagram illustrating the core interactions.
 """
-        response = litellm.completion(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature
-        )
-        return response.choices[0].message.content
+        return self._call_llm_with_retry(prompt)
 
-    def generate_module_guides(self, vector_store: Any, parsed_data: Dict[str, Any], progress_callback=None) -> Dict[str, str]:
+    def generate_module_guides(
+        self, 
+        vector_store: Any, 
+        parsed_data: Dict[str, Any], 
+        progress_callback: Optional[Callable[[str], None]] = None,
+        write_callback: Optional[Callable[[str, str], None]] = None,
+        skip_files: Optional[Set[str]] = None
+    ) -> None:
         """
         Pass B: Iterates over the parsed data to write detailed guides for files.
         """
-        guides = {}
+        if skip_files is None:
+            skip_files = set()
+
         for file_info in parsed_data.get("files", []):
             path = file_info["path"]
+            doc_path = f"docs/{path}.md"
+            
+            if doc_path in skip_files:
+                if progress_callback: progress_callback(f"Skipping {path} (already generated)...")
+                continue
+
             code = file_info.get("code", "")
             
             # To save tokens, skip very small files
@@ -62,14 +93,9 @@ Explain its purpose, key components, and how it works. Use Markdown format.
             if progress_callback:
                 progress_callback(f"Documenting {path}...")
                 
-            response = litellm.completion(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=self.temperature
-            )
-            guides[path] = response.choices[0].message.content
-            
-        return guides
+            content = self._call_llm_with_retry(prompt)
+            if write_callback:
+                write_callback(doc_path, content)
 
     def generate_quickstart(self, vector_store: Any) -> str:
         """
@@ -89,28 +115,38 @@ Context Snippets:
 
 CRITICAL RULE: DO NOT guess or hallucinate environment variables, dependencies, or commands. If the provided context does not explicitly mention them, DO NOT include them. Only provide accurate setup steps derived strictly from the text above. If there isn't enough information, state that clearly instead of guessing.
 """
-        response = litellm.completion(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature
-        )
-        return response.choices[0].message.content
+        return self._call_llm_with_retry(prompt)
 
-    def run_full_pipeline(self, parsed_data: Dict[str, Any], vector_store: Any, mapper: Any, progress_callback=None) -> Dict[str, str]:
+    def run_full_pipeline(
+        self, 
+        parsed_data: Dict[str, Any], 
+        vector_store: Any, 
+        mapper: Any, 
+        progress_callback: Optional[Callable[[str], None]] = None,
+        write_callback: Optional[Callable[[str, str], None]] = None,
+        skip_files: Optional[Set[str]] = None
+    ) -> None:
         """
-        Orchestrates all passes. Returns a dictionary of filename -> markdown content.
+        Orchestrates all passes and uses write_callback to save files immediately.
         """
-        results = {}
-        
-        if progress_callback: progress_callback("Analyzing Architecture...")
-        graph = mapper.map_dependencies(parsed_data)
-        results["ARCHITECTURE.md"] = self.generate_architecture_overview(graph)
-        
-        if progress_callback: progress_callback("Writing Quickstart...")
-        results["QUICKSTART.md"] = self.generate_quickstart(vector_store)
-        
-        guides = self.generate_module_guides(vector_store, parsed_data, progress_callback)
-        for path, content in guides.items():
-            results[f"docs/{path}.md"] = content
+        if skip_files is None:
+            skip_files = set()
+
+        if "ARCHITECTURE.md" not in skip_files:
+            if progress_callback: progress_callback("Analyzing Architecture...")
+            graph = mapper.map_dependencies(parsed_data)
+            content = self.generate_architecture_overview(graph)
+            if write_callback:
+                write_callback("ARCHITECTURE.md", content)
+        elif progress_callback:
+            progress_callback("Skipping ARCHITECTURE.md (already generated)...")
             
-        return results
+        if "QUICKSTART.md" not in skip_files:
+            if progress_callback: progress_callback("Writing Quickstart...")
+            content = self.generate_quickstart(vector_store)
+            if write_callback:
+                write_callback("QUICKSTART.md", content)
+        elif progress_callback:
+            progress_callback("Skipping QUICKSTART.md (already generated)...")
+            
+        self.generate_module_guides(vector_store, parsed_data, progress_callback, write_callback, skip_files)

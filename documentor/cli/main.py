@@ -90,8 +90,12 @@ def configure():
         raise typer.Exit(1)
 
 @app.command()
-def generate(path: str = typer.Argument(..., help="Path to the repository to document"),
-             model: str = typer.Option("gemini/gemini-3.6-flash", help="LiteLLM compatible model name")):
+def generate(
+    path: str = typer.Argument(..., help="Path to the repository to document"),
+    model: str = typer.Option("gemini/gemini-3.6-flash", help="LiteLLM compatible model name"),
+    regenerate: bool = typer.Option(False, "--regenerate", help="Force regenerate all documentation, overwriting existing files"),
+    resume: bool = typer.Option(True, "--resume", help="Skip already generated documentation files (default)")
+):
     """
     Triggers the 4-step Core Engine to generate accurate documentation for the given path.
     """
@@ -119,20 +123,34 @@ def generate(path: str = typer.Argument(..., help="Path to the repository to doc
         typer.echo(f"Step 3: Generating documentation (Model: {model}) ...")
         generator = LLMGenerator(model=model, temperature=0.0)
         
+        # Build skip_files if resuming
+        skip_files = set()
+        if resume and not regenerate:
+            if target_path.exists():
+                for md_file in target_path.rglob("*.md"):
+                    rel_path = md_file.relative_to(target_path).as_posix()
+                    skip_files.add(rel_path)
+        
         def print_progress(msg):
             # Print on a single line and overwrite
             sys.stdout.write(f"\r\033[K  - {msg}")
             sys.stdout.flush()
             
-        docs = generator.run_full_pipeline(parsed_data, vector_store, mapper, progress_callback=print_progress)
-        print() # Add a newline after the progress loop is done
-        
-        typer.echo("Step 4: Writing files ...")
-        for doc_path, content in docs.items():
+        def write_file(doc_path: str, content: str):
             full_path = target_path / doc_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
             with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
+            
+        generator.run_full_pipeline(
+            parsed_data, 
+            vector_store, 
+            mapper, 
+            progress_callback=print_progress,
+            write_callback=write_file,
+            skip_files=skip_files
+        )
+        print() # Add a newline after the progress loop is done
             
         typer.secho("Documentation generation complete!", fg=typer.colors.GREEN)
         
