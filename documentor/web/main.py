@@ -98,6 +98,45 @@ CRITICAL RULE: DO NOT hallucinate. If the answer is not in the context, tell the
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/docs")
+async def api_get_docs(path: str):
+    target_path = Path(path).resolve()
+    if not target_path.exists() or not target_path.is_dir():
+        raise HTTPException(status_code=400, detail="Provided path is not a valid directory.")
+        
+    docs = []
+    # Check top-level standard docs
+    for doc in ["ARCHITECTURE.md", "QUICKSTART.md"]:
+        if (target_path / doc).exists():
+            docs.append(doc)
+            
+    # Check docs/ folder
+    docs_dir = target_path / "docs"
+    if docs_dir.exists() and docs_dir.is_dir():
+        for file in docs_dir.glob("**/*.md"):
+            rel_path = file.relative_to(target_path)
+            # Use forward slashes for URLs
+            docs.append(str(rel_path).replace("\\", "/"))
+            
+    return {"docs": sorted(docs)}
+
+@app.get("/api/docs/content")
+async def api_get_doc_content(path: str, doc: str):
+    target_path = Path(path).resolve()
+    doc_path = (target_path / doc).resolve()
+    
+    # Security: Ensure doc_path is inside target_path
+    if not str(doc_path).startswith(str(target_path)):
+        raise HTTPException(status_code=403, detail="Access denied")
+        
+    if not doc_path.exists():
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    with open(doc_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    return {"content": content}
+
 # Mount static files last so API routes take precedence
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

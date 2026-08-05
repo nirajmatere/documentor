@@ -79,8 +79,39 @@ class ASTParser:
             with open(gitignore_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
         
-        # Add default ignores
-        lines.extend([".git/", "__pycache__/", "node_modules/", "venv/", ".venv/", ".documentor/"])
+        # Comprehensive default exclusions to save API tokens and time
+        lines.extend([
+            # Hidden files and directories (covers .env, .next, .cache, .vscode, .git, .documentor, etc.)
+            ".*", 
+            ".*/**", 
+            # Environment variables
+            "*.env",
+            ".env*",
+            # Logs
+            "*.log",
+            "logs/",
+            # JavaScript / TypeScript / Node
+            "node_modules/",
+            "dist/",
+            "build/",
+            "out/",
+            "coverage/",
+            # Python
+            "__pycache__/",
+            "venv/",
+            "env/",
+            "*.egg-info/",
+            "*.pyc",
+            "htmlcov/",
+            # Rust / Go / Java / C# / C++
+            "target/",
+            "vendor/",
+            "bin/",
+            "obj/",
+            # OS Generated
+            ".DS_Store",
+            "Thumbs.db"
+        ])
         return pathspec.PathSpec.from_lines("gitwildmatch", lines)
 
     def parse(self) -> Dict[str, Any]:

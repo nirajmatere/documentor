@@ -6,6 +6,7 @@
     <title>Documentor | Enterprise AI</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="background-orbs">
@@ -19,9 +20,8 @@
             <p>Enterprise-Grade AI Documentation Suite</p>
         </header>
 
-        <section class="glass-panel" id="generate-section">
-            <h2>Generate Documentation</h2>
-            <form id="generate-form">
+        <section class="glass-panel" id="controls-section">
+            <form id="generate-form" class="controls-form">
                 <div class="input-group">
                     <label for="repo-path">Repository Path</label>
                     <input type="text" id="repo-path" placeholder="/home/user/projects/my-app" required>
@@ -30,26 +30,51 @@
                     <label for="model-select">LLM Model</label>
                     <input type="text" id="model-select" placeholder="e.g. gemini/gemini-3.6-flash" value="gemini/gemini-3.6-flash" required>
                 </div>
-                <button type="submit" id="generate-btn" class="primary-btn">
-                    <span class="btn-text">Generate Docs</span>
-                    <span class="loader hidden"></span>
-                </button>
+                <div class="button-group">
+                    <button type="submit" id="generate-btn" class="primary-btn">
+                        <span class="btn-text">Generate Docs</span>
+                        <span class="loader hidden"></span>
+                    </button>
+                    <button type="button" id="load-btn" class="secondary-btn">
+                        <span class="btn-text">Load Existing</span>
+                        <span class="loader hidden"></span>
+                    </button>
+                </div>
             </form>
             <div id="generate-result" class="message hidden"></div>
         </section>
 
-        <section class="glass-panel" id="chat-section">
-            <h2>Chat with Codebase</h2>
-            <div class="chat-container">
-                <div id="chat-history" class="chat-history">
-                    <div class="chat-msg system">Run generation above to index your codebase, then ask me anything about it!</div>
+        <div class="workspace-grid">
+            <!-- Left: Sidebar -->
+            <aside class="glass-panel" id="docs-sidebar">
+                <h3>Documentation</h3>
+                <ul id="docs-list" class="docs-list">
+                    <li class="empty-state">No docs loaded. Enter a path and click Load.</li>
+                </ul>
+            </aside>
+
+            <!-- Center: Viewer -->
+            <section class="glass-panel" id="doc-viewer">
+                <div id="viewer-content" class="markdown-body">
+                    <h2>Welcome to Documentor</h2>
+                    <p>Select a document from the left sidebar to read it here.</p>
                 </div>
-                <form id="chat-form" class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="How does the authentication flow work?" required>
-                    <button type="submit" class="primary-btn">Send</button>
-                </form>
-            </div>
-        </section>
+            </section>
+
+            <!-- Right: Chat -->
+            <section class="glass-panel" id="chat-section">
+                <h3>Chat with Codebase</h3>
+                <div class="chat-container">
+                    <div id="chat-history" class="chat-history">
+                        <div class="chat-msg system">Run generation or load an existing path, then ask me anything!</div>
+                    </div>
+                    <form id="chat-form" class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="How does the auth flow work?" required>
+                        <button type="submit" class="primary-btn">Send</button>
+                    </form>
+                </div>
+            </section>
+        </div>
     </main>
 
     <script src="app.js"></script>
