@@ -35,9 +35,21 @@ To generate documentation for a repository, run:
 ```bash
 documentor generate /path/to/your/repo --model gpt-4o-mini
 ```
+
+**More Examples:**
+Generate for the current directory (`.`) using Google's fast Gemini Flash model:
+```bash
+documentor generate . --model gemini/gemini-1.5-flash-latest
+```
+
+Generate using Anthropic's Claude:
+```bash
+documentor generate . --model claude-3-5-sonnet-20240620
+```
+
 Once the repository is indexed, you can chat with your codebase using RAG:
 ```bash
-documentor chat "How does the authentication system work?" --path /path/to/your/repo
+documentor chat "How does the authentication system work?" --path . --model gemini/gemini-1.5-flash-latest
 ```
 
 ### 2. Web UI (Playground)
