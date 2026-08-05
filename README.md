@@ -47,6 +47,8 @@ To generate documentation for a repository, run:
 documentor generate /path/to/your/repo --model gemini/gemini-3.6-flash
 ```
 
+> **Note on Parsing:** Documentor automatically ignores `node_modules`, `dist`, `.env` files, logs, and all `.git` ignored files by default. If you want to force Documentor to ignore specific files or folders, just create a `.docignore` file in the root of your project!
+
 **More Examples:**
 Generate for the current directory (`.`) using Google's fast Gemini Flash model:
 ```bash

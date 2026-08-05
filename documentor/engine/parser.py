@@ -78,6 +78,11 @@ class ASTParser:
         if gitignore_path.exists():
             with open(gitignore_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
+                
+        docignore_path = self.root_dir / ".docignore"
+        if docignore_path.exists():
+            with open(docignore_path, "r", encoding="utf-8") as f:
+                lines.extend(f.readlines())
         
         # Comprehensive default exclusions to save API tokens and time
         lines.extend([
