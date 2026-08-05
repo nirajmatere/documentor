@@ -47,12 +47,22 @@ Generate using Anthropic's Claude:
 documentor generate . --model claude-3-5-sonnet-20240620
 ```
 
-Once the repository is indexed, you can chat with your codebase using RAG. If you don't provide a question, it starts an interactive chat loop!
+### 2. Chat with your Codebase (RAG)
+Once the repository is indexed, you can ask questions about your codebase.
+
+**Interactive Chat Mode (Recommended):**
+If you run `chat` without providing a specific question, it will drop you into an interactive terminal where you can chat continuously!
 ```bash
 documentor chat --path . --model gemini/gemini-3.6-flash
 ```
 
-### 2. Web UI (Playground)
+**Single Question Mode:**
+If you just want a quick answer, you can provide the question directly:
+```bash
+documentor chat "How does the authentication system work?" --path . --model gemini/gemini-3.6-flash
+```
+
+### 3. Web UI (Playground)
 Prefer a visual interface? Spin up the beautifully designed, glassmorphic Web UI:
 ```bash
 documentor serve --port 8000
