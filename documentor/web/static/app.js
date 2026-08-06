@@ -76,7 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (language === 'mermaid') {
             return `<div class="mermaid">${code}</div>`;
         }
-        return originalCode(code, language, isEscaped);
+        const renderedCode = originalCode(code, language, isEscaped);
+        return `<div class="code-wrapper">
+                    <button class="copy-code-btn" type="button" title="Copy code">Copy</button>
+                    ${renderedCode}
+                </div>`;
     };
 
     const originalLink = renderer.link.bind(renderer);
@@ -200,6 +204,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto load docs on start
     loadDocs();
 
+    // Auto-resize textarea
+    chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+        if (this.scrollHeight > 150) {
+            this.style.overflowY = 'auto';
+        } else {
+            this.style.overflowY = 'hidden';
+        }
+    });
+
+    // Enter to submit, Shift+Enter for newline
+    chatInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (chatInput.value.trim()) {
+                chatForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+        }
+    });
+
     // Handle Chat
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -214,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appendMessage('user', query, false);
         chatHistoryArr.push({ role: 'user', content: query });
         chatInput.value = '';
+        chatInput.style.height = 'auto'; // Reset height
         chatInput.disabled = true;
         
         // Add Temporary Bot Loader
@@ -249,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         div.id = id;
         div.className = `chat-msg ${role}`;
         if (useMarkdown) {
-            div.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div'], ADD_ATTR: ['class'] });
+            div.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div', 'button'], ADD_ATTR: ['class', 'type', 'title'] });
             setTimeout(() => { try { mermaid.run({ nodes: div.querySelectorAll('.mermaid') }); } catch(e){} }, 10);
         } else {
             div.textContent = text;
@@ -263,12 +289,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgElement = document.getElementById(id);
         if (msgElement) {
             if (useMarkdown) {
-                msgElement.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div'], ADD_ATTR: ['class'] });
+                msgElement.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div', 'button'], ADD_ATTR: ['class', 'type', 'title'] });
                 setTimeout(() => { try { mermaid.run({ nodes: msgElement.querySelectorAll('.mermaid') }); } catch(e){} }, 10);
+                setTimeout(() => { try { msgElement.querySelectorAll('pre code').forEach((block) => { hljs.highlightElement(block); }); } catch(e){} }, 10);
+                
+                // Add copy response button for bot messages
+                if (msgElement.classList.contains('bot')) {
+                    const copyMsgBtn = document.createElement('button');
+                    copyMsgBtn.className = 'copy-msg-btn';
+                    copyMsgBtn.title = 'Copy full response';
+                    copyMsgBtn.innerHTML = '📋 Copy';
+                    copyMsgBtn.addEventListener('click', async () => {
+                        try {
+                            await navigator.clipboard.writeText(text);
+                            copyMsgBtn.innerHTML = '✅ Copied!';
+                            setTimeout(() => { copyMsgBtn.innerHTML = '📋 Copy'; }, 2000);
+                        } catch(err) {}
+                    });
+                    msgElement.appendChild(copyMsgBtn);
+                }
             } else {
                 msgElement.textContent = text;
             }
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
     }
+    
+    // Copy Code Button handler
+    document.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('copy-code-btn')) {
+            const btn = e.target;
+            const wrapper = btn.closest('.code-wrapper');
+            if (!wrapper) return;
+            const codeEl = wrapper.querySelector('code');
+            if (codeEl) {
+                try {
+                    await navigator.clipboard.writeText(codeEl.innerText);
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+                } catch(err) {
+                    btn.textContent = 'Error';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+                }
+            }
+        }
+    });
 });

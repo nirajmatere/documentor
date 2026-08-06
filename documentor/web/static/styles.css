@@ -162,19 +162,19 @@ label {
     color: var(--text-muted);
 }
 
-input {
+input, textarea {
     width: 100%;
-    padding: 8px 12px; /* Reduced input padding */
+    padding: 8px 12px;
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--glass-border);
     border-radius: 6px;
     color: #fff;
     font-family: inherit;
-    font-size: 0.85rem; /* Reduced input font size */
+    font-size: 0.85rem;
     transition: all 0.3s ease;
 }
 
-input:focus {
+input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
@@ -409,7 +409,7 @@ ul.tree-nested {
 }
 
 .markdown-body pre code {
-    background: transparent;
+    background: transparent !important;
     padding: 0;
     border: none;
     color: inherit;
@@ -425,6 +425,70 @@ ul.tree-nested {
 .markdown-body a:hover, .chat-msg a:hover {
     color: #93c5fd;
     border-bottom-color: #93c5fd;
+}
+
+.code-wrapper {
+    position: relative;
+    margin: 1rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    background: #1e1e1e; /* VS Code dark background */
+}
+
+.code-wrapper pre {
+    margin: 0 !important;
+    padding: 2.5rem 1rem 1rem 1rem !important; /* Top padding for the header bar */
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+/* Mac-like header bar */
+.code-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1;
+}
+
+.code-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 11px;
+    left: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff5f56;
+    box-shadow: 18px 0 0 #ffbd2e, 36px 0 0 #27c93f;
+    z-index: 2;
+}
+
+.copy-code-btn {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    z-index: 10;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.copy-code-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
 }
 
 /* Chat UI */
@@ -454,6 +518,8 @@ ul.tree-nested {
     font-size: 0.95rem;
     line-height: 1.5;
     word-wrap: break-word;
+    display: flex;
+    flex-direction: column;
 }
 
 .chat-msg.system {
@@ -475,6 +541,37 @@ ul.tree-nested {
     color: var(--text-color);
 }
 
+.copy-msg-btn {
+    align-self: flex-end;
+    margin-top: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copy-msg-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+:root.light-mode .copy-msg-btn {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+:root.light-mode .copy-msg-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #1e293b;
+}
+
 /* Chat markdown support */
 .chat-msg pre {
     background: rgba(0,0,0,0.5);
@@ -491,10 +588,16 @@ ul.tree-nested {
     display: flex;
     gap: 10px;
     flex-shrink: 0;
+    align-items: flex-end; /* Align bottom */
 }
 
-.chat-input-area input {
+.chat-input-area textarea {
     flex: 1;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 36px;
+    max-height: 150px;
+    line-height: 1.5;
 }
 
 /* Responsive */
@@ -523,7 +626,8 @@ ul.tree-nested {
     --glass-border: rgba(0, 0, 0, 0.1);
 }
 
-:root.light-mode input {
+:root.light-mode input,
+:root.light-mode textarea {
     color: var(--text-color);
     background: rgba(255, 255, 255, 0.9);
 }
@@ -565,6 +669,14 @@ ul.tree-nested {
 :root.light-mode .chat-msg a:hover {
     color: #1d4ed8;
     border-bottom-color: #1d4ed8;
+}
+
+:root.light-mode .copy-code-btn {
+    background: rgba(0,0,0,0.05);
+    color: #333;
+}
+:root.light-mode .copy-code-btn:hover {
+    background: rgba(0,0,0,0.1);
 }
 
 :root.light-mode .tree-file:hover, 
