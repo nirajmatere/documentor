@@ -435,39 +435,14 @@ ul.tree-nested {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255,255,255,0.1);
     background: #1e1e1e; /* VS Code dark background */
+    color: #d4d4d4 !important; /* Force light text in case syntax highlighter is absent */
 }
 
 .code-wrapper pre {
     margin: 0 !important;
-    padding: 2.5rem 1rem 1rem 1rem !important; /* Top padding for the header bar */
+    padding: 1rem !important; /* Standard padding */
     border-radius: 0 !important;
     background: transparent !important;
-}
-
-/* Mac-like header bar */
-.code-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 32px;
-    background: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    z-index: 1;
-}
-
-.code-wrapper::after {
-    content: '';
-    position: absolute;
-    top: 11px;
-    left: 12px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #ff5f56;
-    box-shadow: 18px 0 0 #ffbd2e, 36px 0 0 #27c93f;
-    z-index: 2;
 }
 
 .copy-code-btn {
@@ -632,6 +607,10 @@ ul.tree-nested {
     background: rgba(255, 255, 255, 0.9);
 }
 
+:root.light-mode .chat-msg.user {
+    color: #1e293b;
+}
+
 :root.light-mode .secondary-btn {
     color: var(--text-color);
 }
@@ -671,13 +650,6 @@ ul.tree-nested {
     border-bottom-color: #1d4ed8;
 }
 
-:root.light-mode .copy-code-btn {
-    background: rgba(0,0,0,0.05);
-    color: #333;
-}
-:root.light-mode .copy-code-btn:hover {
-    background: rgba(0,0,0,0.1);
-}
 
 :root.light-mode .tree-file:hover, 
 :root.light-mode .tree-folder > span:hover {
@@ -685,7 +657,7 @@ ul.tree-nested {
 }
 
 :root.light-mode .chat-history {
-    background: rgba(255, 255, 255, 0.5);
+    background: transparent;
 }
 
 :root.light-mode .chat-msg.bot {

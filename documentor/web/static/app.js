@@ -194,8 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 throw new Error(data.detail || 'Failed to load content.');
             }
-            
-            viewerContent.innerHTML = marked.parse(data.content);
+            viewerContent.innerHTML = DOMPurify.sanitize(marked.parse(data.content), { ADD_TAGS: ['div', 'button'], ADD_ATTR: ['class', 'type', 'title'] });
+            setTimeout(() => { 
+                try { mermaid.run({ nodes: viewerContent.querySelectorAll('.mermaid') }); } catch(e){} 
+                try { viewerContent.querySelectorAll('pre code').forEach((block) => { hljs.highlightElement(block); }); } catch(e){}
+            }, 10);
         } catch (err) {
             viewerContent.innerHTML = `<p style="color:var(--error)">Error: ${err.message}</p>`;
         }
