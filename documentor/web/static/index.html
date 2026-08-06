@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
     <div class="background-orbs">
@@ -30,11 +32,18 @@
         <div class="workspace-grid">
             <!-- Left: Sidebar -->
             <aside class="glass-panel" id="docs-sidebar">
-                <h3>Documentation</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Documentation</h3>
+                    <button type="button" id="toggle-sidebar-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Toggle Sidebar">☰</button>
+                </div>
                 <ul id="docs-list" class="docs-list">
                     <li class="empty-state">No docs loaded. Enter a path and click Load.</li>
                 </ul>
             </aside>
+            
+            <div id="sidebar-stub" class="hidden" style="display: flex; flex-direction: column; align-items: center; padding-top: 15px;">
+                <button type="button" id="open-sidebar-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Open Sidebar">☰</button>
+            </div>
 
             <!-- Center: Viewer -->
             <section class="glass-panel" id="doc-viewer">
@@ -46,9 +55,12 @@
 
             <!-- Right: Chat Window -->
             <aside class="glass-panel hidden" id="chat-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div class="chat-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="margin: 0;">Chat with Codebase</h3>
-                    <button type="button" id="fullscreen-chat-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Toggle Fullscreen">⛶</button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="button" id="fullscreen-chat-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Toggle Fullscreen">⛶</button>
+                        <button type="button" id="close-chat-btn" style="background: none; border: none; cursor: pointer; color: var(--text-color); font-size: 1.2rem;" title="Close Chat">✕</button>
+                    </div>
                 </div>
                 <div class="chat-container">
                     <div id="chat-history" class="chat-history">
@@ -56,7 +68,7 @@
                     </div>
                     <form id="chat-form" class="chat-input-area">
                         <input type="text" id="chat-input" placeholder="How does the auth flow work?" required>
-                        <button type="submit" class="primary-btn">Send</button>
+                        <button type="submit" class="primary-btn">Ask</button>
                     </form>
                 </div>
             </section>

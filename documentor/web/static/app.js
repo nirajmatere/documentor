@@ -9,9 +9,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleChatBtn = document.getElementById('toggle-chat-btn');
     const chatSection = document.getElementById('chat-section');
     const workspaceGrid = document.querySelector('.workspace-grid');
+    const docsSidebar = document.getElementById('docs-sidebar');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+    const openSidebarBtn = document.getElementById('open-sidebar-btn');
+    const sidebarStub = document.getElementById('sidebar-stub');
     
     const toggleThemeBtn = document.getElementById('toggle-theme-btn');
     const fullscreenChatBtn = document.getElementById('fullscreen-chat-btn');
+    const closeChatBtn = document.getElementById('close-chat-btn');
+    
+    let chatHistoryArr = [];
     
     // Theme toggle
     if (localStorage.getItem('theme') === 'light') {
@@ -21,11 +28,36 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleThemeBtn.addEventListener('click', () => {
         document.documentElement.classList.toggle('light-mode');
         localStorage.setItem('theme', document.documentElement.classList.contains('light-mode') ? 'light' : 'dark');
+        try { mermaid.initialize({ theme: (document.documentElement.classList.contains('light-mode') ? 'default' : 'dark') }); } catch(e){}
     });
 
     fullscreenChatBtn.addEventListener('click', () => {
         workspaceGrid.classList.toggle('chat-fullscreen');
     });
+
+    if (toggleSidebarBtn) {
+        toggleSidebarBtn.addEventListener('click', () => {
+            docsSidebar.classList.add('hidden');
+            workspaceGrid.classList.add('sidebar-hidden');
+            if (sidebarStub) sidebarStub.classList.remove('hidden');
+        });
+    }
+
+    if (openSidebarBtn) {
+        openSidebarBtn.addEventListener('click', () => {
+            docsSidebar.classList.remove('hidden');
+            workspaceGrid.classList.remove('sidebar-hidden');
+            if (sidebarStub) sidebarStub.classList.add('hidden');
+        });
+    }
+
+    if (closeChatBtn) {
+        closeChatBtn.addEventListener('click', () => {
+            chatSection.classList.add('hidden');
+            workspaceGrid.classList.remove('chat-open');
+            workspaceGrid.classList.remove('chat-fullscreen');
+        });
+    }
     
     toggleChatBtn.addEventListener('click', () => {
         chatSection.classList.toggle('hidden');
@@ -38,11 +70,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Configure marked for security
+    const renderer = new marked.Renderer();
+    const originalCode = renderer.code.bind(renderer);
+    renderer.code = function(code, language, isEscaped) {
+        if (language === 'mermaid') {
+            return `<div class="mermaid">${code}</div>`;
+        }
+        return originalCode(code, language, isEscaped);
+    };
+
+    const originalLink = renderer.link.bind(renderer);
+    renderer.link = function(...args) {
+        const link = originalLink(...args);
+        return link.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
+    };
+
     marked.setOptions({
+        renderer: renderer,
         headerIds: false,
         mangle: false,
         breaks: true
     });
+
+    try {
+        mermaid.initialize({ startOnLoad: false, theme: (document.documentElement.classList.contains('light-mode') ? 'default' : 'dark') });
+    } catch(e) {}
 
     // Load Existing Docs
     async function loadDocs() {
@@ -160,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add User Message
         appendMessage('user', query, false);
+        chatHistoryArr.push({ role: 'user', content: query });
         chatInput.value = '';
         chatInput.disabled = true;
         
@@ -170,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, path: repoPath, model: model })
+                body: JSON.stringify({ query, path: repoPath, model: model, history: chatHistoryArr.slice(0, -1) })
             });
             
             const data = await response.json();
@@ -180,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             updateMessage(loaderId, data.answer, true);
+            chatHistoryArr.push({ role: 'assistant', content: data.answer });
         } catch (err) {
             updateMessage(loaderId, `Error: ${err.message}`, false);
             document.getElementById(loaderId).style.color = 'var(--error)';
@@ -195,7 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
         div.id = id;
         div.className = `chat-msg ${role}`;
         if (useMarkdown) {
-            div.innerHTML = marked.parse(text);
+            div.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div'], ADD_ATTR: ['class'] });
+            setTimeout(() => { try { mermaid.run({ nodes: div.querySelectorAll('.mermaid') }); } catch(e){} }, 10);
         } else {
             div.textContent = text;
         }
@@ -208,7 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgElement = document.getElementById(id);
         if (msgElement) {
             if (useMarkdown) {
-                msgElement.innerHTML = marked.parse(text);
+                msgElement.innerHTML = DOMPurify.sanitize(marked.parse(text), { ADD_TAGS: ['div'], ADD_ATTR: ['class'] });
+                setTimeout(() => { try { mermaid.run({ nodes: msgElement.querySelectorAll('.mermaid') }); } catch(e){} }, 10);
             } else {
                 msgElement.textContent = text;
             }

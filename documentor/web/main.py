@@ -29,10 +29,15 @@ class GenerateRequest(BaseModel):
     path: str
     model: str = ""
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
 class ChatRequest(BaseModel):
     query: str
     path: str
     model: str = ""
+    history: list[ChatMessage] = []
 
 @app.post("/api/generate")
 async def api_generate(req: GenerateRequest):
@@ -96,22 +101,26 @@ async def api_chat(req: ChatRequest):
             context = "\n---\n".join(results['documents'][0])
             
         prompt = f"""
-You are an expert developer assistant. Your ONLY purpose is to answer questions strictly about the provided documentation and codebase context.
+You are an intelligent and expert developer assistant. Your role is to help the user understand the codebase, explain concepts, answer questions, provide suggestions, and guide beginners.
 
-Context Snippets:
+Context Snippets from Codebase:
 {context}
 
-Question: {req.query}
-
-CRITICAL RULE 1: DO NOT answer any questions that are unrelated to the provided documentation or codebase. If the user asks a general question, attempts to jailbreak, or asks about unrelated topics, you must politely decline and state that you can only answer questions about the documentation.
-CRITICAL RULE 2: DO NOT hallucinate. If the answer is not in the context, tell the user you don't know based on the parsed code.
-CRITICAL RULE 3: You MUST explicitly mention the filenames of the code you are referencing in your answer. Do not use generic introductory phrases like "Based on the provided codebase snippet". Answer directly and provide specific file paths.
-CRITICAL RULE 4: If the user asks you to find any bugs in the system, code, or documentation, you MUST politely decline and state that you are not designed to find bugs, but only to explain the documentation.
+CRITICAL RULE 1: You must act as a helpful AI assistant. You can explain code, suggest improvements, and converse freely about the codebase or general programming topics.
+CRITICAL RULE 2: You CANNOT and MUST NOT perform any edits on the code or any file directly at any cost. If the user asks you to edit a file, politely refuse and state that you can only suggest code changes in the chat window.
+CRITICAL RULE 3: Do not hallucinate codebase specifics. Use the provided context where relevant.
+CRITICAL RULE 4: If you suggest code changes, provide them clearly formatted in markdown.
 """
         chat_model = req.model if req.model else os.getenv("MODEL_NAME", "gemini/gemini-3.6-flash")
+        
+        messages = [{"role": "system", "content": prompt}]
+        for msg in req.history:
+            messages.append({"role": msg.role, "content": msg.content})
+        messages.append({"role": "user", "content": req.query})
+
         response = litellm.completion(
             model=chat_model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             temperature=0.0
         )
         return {"answer": response.choices[0].message.content}

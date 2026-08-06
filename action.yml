@@ -1,5 +1,5 @@
-name: 'documentor-ai'
-description: 'Automatically generate accurate documentation for your codebase using Documentor AI.'
+name: 'Documentor AI - Auto Generate Code Documentation'
+description: 'Automate your codebase documentation with AI. Uses LLMs to generate accurate, semantic, and highly readable markdown docs.'
 inputs:
   model:
     description: 'LiteLLM compatible model to use'
@@ -12,5 +12,5 @@ runs:
     - ${{ inputs.model }}
 
 branding:
-  icon: 'book-open'
-  color: 'blue'
+  icon: 'cpu'
+  color: 'purple'

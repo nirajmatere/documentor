@@ -66,8 +66,8 @@ Generate using Anthropic's Claude (by overriding your default model):
 documentor generate . --model claude-3-5-sonnet-20240620
 ```
 
-### 2. Chat with your Codebase (RAG)
-Once the repository is indexed, you can ask questions about your codebase.
+### 2. Intelligent AI Assistant (Terminal)
+Once the repository is indexed, you can converse with an intelligent AI assistant about your codebase directly from your terminal.
 
 **Interactive Chat Mode (Recommended):**
 If you run `chat` without providing a specific question, it will drop you into an interactive terminal where you can chat continuously!
@@ -81,14 +81,19 @@ If you just want a quick answer, you can provide the question directly:
 documentor chat "How does the authentication system work?" --path .
 ```
 
-> **Note:** The AI assistant is strictly locked down to only answer questions about your documentation. It will politely decline requests to find bugs or answer off-topic queries!
+> **Note on Intelligence:** The AI assistant is context-aware and highly intelligent! While it won't directly edit your files, you can ask it to explain code in simple terms, provide setup guides for beginners, or suggest code improvements.
 
-### 3. Web UI (Playground)
+### 3. Web UI (Playground & Visual Chat)
 Prefer a visual interface? Spin up the beautifully designed, glassmorphic Web UI:
 ```bash
 documentor serve --port 8000
 ```
-Then open `http://localhost:8000` in your browser. The Web UI will automatically load the documentation for your current directory (`.`). It also features a **Fullscreen AI Chat** and a **Light/Dark Theme** toggle!
+Then open `http://localhost:8000` in your browser. The Web UI not only loads the documentation for your current directory (`.`), but it also features a **Full-screen Conversational AI Chat**! 
+
+The Web UI chat includes:
+- **Conversational Memory**: The AI remembers the context of your ongoing chat.
+- **Mermaid Diagram Support**: Ask the AI to draw architectural diagrams, and it will render them as beautiful SVG graphics right in the chat!
+- **Clean Layout**: Features a light/dark theme toggle, a collapsible sidebar, and a distraction-free fullscreen chat mode.
 
 ### 3. GitHub Action (CI/CD)
 Documentor comes packaged as a lightning-fast Docker Action. You can automate documentation generation on your Pull Requests by creating `.github/workflows/documentor.yml` in your target repository:
