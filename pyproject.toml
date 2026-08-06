@@ -9,7 +9,7 @@ description = "Enterprise-grade AI documentation suite"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "Documentor Team" }
+    { name = "Niraj Matere", email = "github.com/nirajmatere" }
 ]
 dependencies = [
     "typer>=0.12.0",
