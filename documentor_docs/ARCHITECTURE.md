@@ -1,119 +1,127 @@
-# Architecture Documentation: Documentor
+# System Architecture: `documentor`
 
-This document provides an overview of the system architecture, file structure, key entities, and module dependencies for the `documentor` codebase based on its dependency graph.
-
----
-
-## 1. System Overview
-
-The `documentor` application is organized into three distinct layers:
-1. **Engine Layer (`documentor/engine/`)**: Provides core processing utilities including parsing, vector storage, dependency mapping, and LLM text generation.
-2. **CLI Layer (`documentor/cli/`)**: Provides the command-line interface and core execution commands (`generate`, `chat`, `serve`, `configure`).
-3. **Web Layer (`documentor/web/`)**: Provides HTTP API endpoints and frontend assets to serve documentation and interact with the engine and CLI tools.
+This document details the architectural structure and module dependencies of the `documentor` codebase, derived directly from the code dependency analysis.
 
 ---
 
-## 2. Component Structure & Entities
+## Architecture Overview
 
-### 2.1 Engine Layer (`documentor/engine/`)
-The engine layer contains isolated domain logic and has zero dependencies on other layers in the system.
+The codebase is organized into three primary architectural layers:
+
+1. **Engine Layer (`documentor/engine/`)**: Core logic components providing low-level operations such as AST parsing, dependency mapping, vector storage, and LLM text generation.
+2. **CLI Layer (`documentor/cli/`)**: Command-line interface orchestration handling user configuration, error management, and invocation of core engine operations.
+3. **Web Layer (`documentor/web/`)**: Web endpoints, request models, and static web frontend components for user interactions via a web interface.
+
+---
+
+## Component Breakdown
+
+### 1. Engine Layer (`documentor/engine/`)
+Contains standalone utility classes that handle processing and vector/LLM generation tasks.
 
 * **`documentor/engine/parser.py`**
-  * **Entities**: `ASTParser`
-  * **Dependencies**: None
+  * **Key Entity**: `ASTParser`
+  * **Role**: Parses Abstract Syntax Trees from source files.
 * **`documentor/engine/mapper.py`**
-  * **Entities**: `DependencyMapper`
-  * **Dependencies**: None
+  * **Key Entity**: `DependencyMapper`
+  * **Role**: Maps code dependencies across files.
 * **`documentor/engine/vectorizer.py`**
-  * **Entities**: `VectorStore`
-  * **Dependencies**: None
+  * **Key Entity**: `VectorStore`
+  * **Role**: Manages vector storage and indexing operations.
 * **`documentor/engine/generator.py`**
-  * **Entities**: `LLMGenerator`
-  * **Dependencies**: None
-* **`documentor/engine/__init__.py`**
-  * **Entities**: `__init__.py`
-  * **Dependencies**: None
-
-### 2.2 CLI Layer (`documentor/cli/`)
-The CLI layer acts as an entry point for command-line execution and interacts directly with all core engine modules.
-
-* **`documentor/cli/main.py`**
-  * **Entities**: `version_callback`, `main`, `load_config`, `handle_litellm_error`, `configure`, `generate`, `chat`, `serve`
-  * **Dependencies**:
-    * `documentor/engine/parser.py`
-    * `documentor/engine/mapper.py`
-    * `documentor/engine/vectorizer.py`
-    * `documentor/engine/generator.py`
-* **`documentor/cli/__init__.py`**
-  * **Entities**: `__init__.py`
-  * **Dependencies**: None
-
-### 2.3 Web Layer (`documentor/web/`)
-The web layer exposes the core documentation features via API endpoints and web client scripts.
-
-* **`documentor/web/main.py`**
-  * **Entities**: `GenerateRequest`, `ChatRequest`, `api_generate`, `api_chat`, `api_get_docs`, `api_get_doc_content`
-  * **Dependencies**:
-    * `documentor/engine/parser.py`
-    * `documentor/engine/mapper.py`
-    * `documentor/engine/vectorizer.py`
-    * `documentor/engine/generator.py`
-    * `documentor/cli/main.py`
-* **`documentor/web/static/app.js`**
-  * **Entities**: `loadDocs`, `loadDocContent`, `appendMessage`, `updateMessage`
-  * **Dependencies**:
-    * `documentor/cli/main.py`
-* **`documentor/web/__init__.py`**
-  * **Entities**: `__init__.py`
-  * **Dependencies**: None
+  * **Key Entity**: `LLMGenerator`
+  * **Role**: Generates documentation/text responses using LLM integrations.
 
 ---
 
-## 3. Architecture & Dependency Diagram
+### 2. CLI Layer (`documentor/cli/`)
+Acts as a central execution interface coordinating between configuration settings and engine utilities.
 
-The following Mermaid diagram illustrates the dependency flow across the codebase:
+* **`documentor/cli/main.py`**
+  * **Key Entities**: 
+    * Functions: `main`, `configure`, `generate`, `chat`, `serve`, `version_callback`
+    * Helper functions: `load_config`, `handle_litellm_error`
+  * **Dependencies**:
+    * `documentor/engine/parser.py`
+    * `documentor/engine/mapper.py`
+    * `documentor/engine/vectorizer.py`
+    * `documentor/engine/generator.py`
+
+---
+
+### 3. Web Layer (`documentor/web/`)
+Provides web API endpoints and frontend interface scripts to interact with the documentation engine and CLI modules.
+
+* **`documentor/web/main.py`**
+  * **Key Entities**:
+    * Data Models: `GenerateRequest`, `ChatMessage`, `ChatRequest`
+    * API Endpoints: `api_generate`, `api_chat`, `api_get_docs`, `api_get_doc_content`
+  * **Dependencies**:
+    * `documentor/cli/main.py`
+    * `documentor/engine/parser.py`
+    * `documentor/engine/mapper.py`
+    * `documentor/engine/vectorizer.py`
+    * `documentor/engine/generator.py`
+
+* **`documentor/web/static/app.js`**
+  * **Key Entities**:
+    * Frontend Functions: `loadDocs`, `loadDocContent`, `appendMessage`, `updateMessage`
+  * **Dependencies**:
+    * `documentor/cli/main.py`
+
+---
+
+## Dependency Graph Diagram
+
+The following Mermaid diagram maps the dependency hierarchy across the system components:
 
 ```mermaid
 graph TD
-    subgraph Web ["Web Layer (documentor/web)"]
-        WebMain["web/main.py<br/>• GenerateRequest<br/>• ChatRequest<br/>• api_generate<br/>• api_chat<br/>• api_get_docs<br/>• api_get_doc_content"]
-        WebJS["web/static/app.js<br/>• loadDocs<br/>• loadDocContent<br/>• appendMessage<br/>• updateMessage"]
+    subgraph Web Layer ["Web Layer (documentor/web)"]
+        WEB_APP["web/static/app.js<br/><i>(loadDocs, loadDocContent, appendMessage, updateMessage)</i>"]
+        WEB_MAIN["web/main.py<br/><i>(GenerateRequest, ChatMessage, ChatRequest, api_generate, api_chat, api_get_docs, api_get_doc_content)</i>"]
     end
 
-    subgraph CLI ["CLI Layer (documentor/cli)"]
-        CLIMain["cli/main.py<br/>• main<br/>• configure<br/>• generate<br/>• chat<br/>• serve<br/>• load_config<br/>• handle_litellm_error<br/>• version_callback"]
+    subgraph CLI Layer ["CLI Layer (documentor/cli)"]
+        CLI_MAIN["cli/main.py<br/><i>(main, configure, generate, chat, serve, load_config, handle_litellm_error, version_callback)</i>"]
     end
 
-    subgraph Engine ["Engine Layer (documentor/engine)"]
-        Parser["engine/parser.py<br/>• ASTParser"]
-        Mapper["engine/mapper.py<br/>• DependencyMapper"]
-        Vectorizer["engine/vectorizer.py<br/>• VectorStore"]
-        Generator["engine/generator.py<br/>• LLMGenerator"]
+    subgraph Engine Layer ["Engine Layer (documentor/engine)"]
+        PARSER["engine/parser.py<br/><i>(ASTParser)</i>"]
+        MAPPER["engine/mapper.py<br/><i>(DependencyMapper)</i>"]
+        VECTORIZER["engine/vectorizer.py<br/><i>(VectorStore)</i>"]
+        GENERATOR["engine/generator.py<br/><i>(LLMGenerator)</i>"]
     end
-
-    %% CLI Dependencies
-    CLIMain --> Parser
-    CLIMain --> Mapper
-    CLIMain --> Vectorizer
-    CLIMain --> Generator
 
     %% Web Dependencies
-    WebMain --> Parser
-    WebMain --> Mapper
-    WebMain --> Vectorizer
-    WebMain --> Generator
-    WebMain --> CLIMain
+    WEB_MAIN --> CLI_MAIN
+    WEB_MAIN --> PARSER
+    WEB_MAIN --> MAPPER
+    WEB_MAIN --> VECTORIZER
+    WEB_MAIN --> GENERATOR
 
-    WebJS --> CLIMain
+    WEB_APP --> CLI_MAIN
+
+    %% CLI Dependencies
+    CLI_MAIN --> PARSER
+    CLI_MAIN --> MAPPER
+    CLI_MAIN --> VECTORIZER
+    CLI_MAIN --> GENERATOR
 ```
 
 ---
 
-## 4. Dependency Summary Matrix
+## Module Dependency Summary Table
 
-| Source File | Engine Layer | CLI Layer | Web Layer |
-| :--- | :---: | :---: | :---: |
-| `documentor/engine/*` | **Self-Contained** | No Dependency | No Dependency |
-| `documentor/cli/main.py` | Depends On | **Self-Contained** | No Dependency |
-| `documentor/web/main.py` | Depends On | Depends On | **Self-Contained** |
-| `documentor/web/static/app.js` | No Direct Dependency | Depends On | **Self-Contained** |
+| Module Source | Target Dependency |
+| :--- | :--- |
+| `documentor/cli/main.py` | `documentor/engine/parser.py` |
+| `documentor/cli/main.py` | `documentor/engine/mapper.py` |
+| `documentor/cli/main.py` | `documentor/engine/vectorizer.py` |
+| `documentor/cli/main.py` | `documentor/engine/generator.py` |
+| `documentor/web/main.py` | `documentor/cli/main.py` |
+| `documentor/web/main.py` | `documentor/engine/parser.py` |
+| `documentor/web/main.py` | `documentor/engine/mapper.py` |
+| `documentor/web/main.py` | `documentor/engine/vectorizer.py` |
+| `documentor/web/main.py` | `documentor/engine/generator.py` |
+| `documentor/web/static/app.js` | `documentor/cli/main.py` |

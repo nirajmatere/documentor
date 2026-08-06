@@ -2,208 +2,167 @@
 
 ## Overview
 
-The `documentor/engine/parser.py` module defines the `ASTParser` class, which serves as the entry point for scanning and parsing code repositories into Abstract Syntax Trees (ASTs). 
+The `documentor/engine/parser.py` module defines the `ASTParser` class, which serves as the core source code parser for the repository documentation generator. 
 
-It performs three primary duties:
-1. **Repository Traversal & Filtering:** Walks the file tree while respecting `.gitignore`, `.docignore`, and default system exclusion patterns.
-2. **Multi-Language Tree-Sitter Loading:** Dynamically loads Tree-Sitter language parsers for various programming languages if their packages are available.
-3. **AST Structure & Chunk Extraction:** Parses source files into syntax trees and extracts structural code blocks (classes and functions) into standard dictionary schemas.
-
----
-
-## Dependencies
-
-* **`os` & `pathlib.Path`**: File system navigation and path manipulation.
-* **`typing`**: Type hinting (`List`, `Dict`, `Any`, `Optional`).
-* **`pathspec`**: Gitignore-style path pattern matching (`gitwildmatch`).
-* **`tree_sitter`**: Syntactic parsing library.
-* **Optional Language Bindings**:
-  * `tree_sitter_python`
-  * `tree_sitter_javascript`
-  * `tree_sitter_go`
-  * `tree_sitter_typescript`
-  * `tree_sitter_java`
-  * `tree_sitter_rust`
-  * `tree_sitter_r`
-  * `tree_sitter_cpp`
-  * `tree_sitter_c`
-  * `tree_sitter_c_sharp`
+Its primary function is to traverse a repository directory, filter out ignored files and directories using `.gitignore`, `.docignore`, and predefined patterns, and construct an Abstract Syntax Tree (AST) representation of supported code files using `tree-sitter`. The parser extracts code structural elements (classes, functions, or full files as fallbacks) into structured chunks for downstream documentation tasks.
 
 ---
 
 ## Class: `ASTParser`
 
-### Class Signature
+`ASTParser` is the central class responsible for repository traversal, language grammar loading, path exclusion, and AST-based chunk extraction.
+
+### Initialization
+
 ```python
-class ASTParser:
-    def __init__(self, root_dir: str)
+ASTParser(root_dir: str)
 ```
 
----
+#### Parameters
+- `root_dir` (`str`): The root directory path of the codebase to be analyzed.
 
-### Methods
-
-#### `__init__(root_dir: str)`
-Initializes an `ASTParser` instance for a given target repository path.
-* **Arguments:**
-  * `root_dir` (`str`): Absolute or relative file system path to the root directory of the repository.
-* **Attributes Initialized:**
-  * `self.root_dir` (`Path`): Resolved `Path` object representing the repository root.
-  * `self.ignore_spec` (`pathspec.PathSpec`): Compiled `pathspec` matcher containing ignore rules.
-  * `self.languages` (`Dict[str, tree_sitter.Language]`): Dictionary mapping file extension strings (e.g., `".py"`) to their corresponding `tree_sitter.Language` instances.
+#### Behavior
+1. Converts `root_dir` into a `pathlib.Path` object stored at `self.root_dir`.
+2. Loads exclusion rules via `_load_gitignore()` and assigns the result to `self.ignore_spec`.
+3. Initializes an empty `self.languages` dictionary and populates it by invoking `_load_languages()`.
 
 ---
+
+## Method Details
+
+### Public Methods
+
+#### `parse() -> Dict[str, Any]`
+The main entry point for parsing the codebase.
+
+* **Returns:** A dictionary containing a list of parsed file details under the `"files"` key.
+* **Return Structure:**
+  ```python
+  {
+      "files": [
+          {
+              "path": "relative/path/to/file.py",
+              "language": ".py",
+              "code": "...",  # Full file string content
+              "chunks": [
+                  {
+                      "type": "class" | "function" | "file",
+                      "name": "...",
+                      "content": "..."
+                  }
+              ]
+          }
+      ]
+  }
+  ```
+
+---
+
+### Internal / Helper Methods
 
 #### `_load_languages()`
-Attempts to import language grammar bindings for tree-sitter dynamically. If an import fails (`ImportError`), the language is silently skipped.
+Dynamically attempts to import `tree-sitter` language grammars for supported extensions. If a language bindings package is not installed, the `ImportError` is silently caught, and that file extension will not be parsed.
 
-**Supported File Extensions & Parsers:**
-
-| Language | Module Import | Associated Extensions |
-| :--- | :--- | :--- |
-| Python | `tree_sitter_python` | `.py` |
-| JavaScript | `tree_sitter_javascript` | `.js`, `.jsx` |
-| Go | `tree_sitter_go` | `.go` |
-| TypeScript | `tree_sitter_typescript` | `.ts`, `.tsx` |
-| Java | `tree_sitter_java` | `.java` |
-| Rust | `tree_sitter_rust` | `.rs` |
-| R | `tree_sitter_r` | `.r` |
-| C++ | `tree_sitter_cpp` | `.cpp`, `.hpp`, `.cc` |
-| C | `tree_sitter_c` | `.c`, `.h` |
-| C# | `tree_sitter_c_sharp` | `.cs` |
+##### Extension to Grammar Mapping:
+| Extension(s) | Tree-Sitter Language Grammar Module |
+| :--- | :--- |
+| `.py` | `tree_sitter_python` |
+| `.js`, `.jsx` | `tree_sitter_javascript` |
+| `.go` | `tree_sitter_go` |
+| `.ts`, `.tsx` | `tree_sitter_typescript` (`language_typescript` / `language_tsx`) |
+| `.java` | `tree_sitter_java` |
+| `.rs` | `tree_sitter_rust` |
+| `.r` | `tree_sitter_r` |
+| `.cpp`, `.hpp`, `.cc` | `tree_sitter_cpp` |
+| `.c`, `.h` | `tree_sitter_c` |
+| `.cs` | `tree_sitter_c_sharp` |
 
 ---
 
 #### `_load_gitignore() -> Optional[pathspec.PathSpec]`
-Reads ignore patterns from `.gitignore` and `.docignore` files present in `self.root_dir`, appends built-in default ignore patterns, and compiles them into a `PathSpec` object.
+Reads ignore patterns from `.gitignore` and `.docignore` files within `root_dir` (if present) and appends a list of built-in default exclusions.
 
-* **Hardcoded Default Exclusions:**
-  * Hidden files & directories (`.*`, `.*/**`)
-  * Environment & configuration files (`*.env`, `.env*`)
-  * Logs (`*.log`, `logs/`)
-  * JavaScript / Node build artifacts (`node_modules/`, `dist/`, `build/`, `out/`, `coverage/`)
-  * Python virtual environments and caches (`__pycache__/`, `venv/`, `env/`, `*.egg-info/`, `*.pyc`, `htmlcov/`)
-  * Compiled languages / project build outputs (`target/`, `vendor/`, `bin/`, `obj/`)
-  * Operating system metadata (`.DS_Store`, `Thumbs.db`)
+##### Hardcoded Default Exclusions:
+- **Hidden files/folders:** `.*`, `.*/**`
+- **Environment files:** `*.env`, `.env*`
+- **Logs:** `*.log`, `logs/`
+- **JS / TS / Node builds:** `node_modules/`, `dist/`, `build/`, `out/`, `coverage/`
+- **Python artifacts:** `__pycache__/`, `venv/`, `env/`, `*.egg-info/`, `*.pyc`, `htmlcov/`
+- **Compiled binaries & target dirs:** `target/`, `vendor/`, `bin/`, `obj/`
+- **OS files:** `.DS_Store`, `Thumbs.db`
 
-* **Returns:** `pathspec.PathSpec` configured with the `"gitwildmatch"` pattern syntax.
-
----
-
-#### `parse() -> Dict[str, Any]`
-Main entry point for parsing the codebase.
-
-* **Returns:** A dictionary containing list of parsed file payloads.
-  ```python
-  {
-      "files": [
-          # List of file_info objects returned by _parse_file
-      ]
-  }
-  ```
+Returns a `pathspec.PathSpec` compiled with the `"gitwildmatch"` rule set.
 
 ---
 
 #### `_traverse() -> List[Path]`
-Walks the repository directory tree starting at `self.root_dir` using `os.walk`.
+Recursively traverses `self.root_dir` using `os.walk()`.
 
-* Modifies `dirs` in-place to prevent walking into ignored directories early.
-* Checks each file against `_is_ignored()`.
-* Filters out files whose extension is not mapped in `self.languages`.
-* **Returns:** A list of valid `Path` objects to be parsed.
+* Modifies directory list (`dirs[:]`) in-place during traversal to skip traversing ignored directories altogether.
+* Filters individual files using `_is_ignored()`.
+* Selects files whose extension (`suffix`) is present in `self.languages`.
+* **Returns:** A list of `pathlib.Path` objects representing eligible code files.
 
 ---
 
 #### `_is_ignored(path: Path) -> bool`
-Evaluates whether a given path matches the loaded ignore specifications.
+Evaluates whether a given path matches the compiled `self.ignore_spec` patterns.
 
-* **Arguments:**
-  * `path` (`Path`): File or directory path to test.
-* **Returns:** `True` if the path matches an ignore pattern, `False` otherwise. (Returns `False` if `self.ignore_spec` is not set).
+* **Parameters:** `path` (`Path`) - Absolute or relative file path.
+* **Returns:** `True` if the path relative to `self.root_dir` matches the ignore rules; `False` otherwise (or if `self.ignore_spec` is `None`).
 
 ---
 
 #### `_parse_file(file_path: Path) -> Optional[Dict[str, Any]]`
-Reads and parses an individual source code file using Tree-Sitter.
+Parses an individual file into structured data and chunks using Tree-sitter.
 
-* **Arguments:**
-  * `file_path` (`Path`): Path to the source file.
-* **Returns:**
-  * `None` if the extension is unsupported or if a `UnicodeDecodeError` occurs when reading the file.
-  * A dictionary structured as follows if parsing succeeds:
-    ```python
-    {
-        "path": "relative/path/to/file.ext",  # Path relative to root_dir
-        "language": ".ext",                    # File extension
-        "code": "...",                         # Entire source code text
-        "chunks": [...]                        # List of extracted class/function chunks
-    }
-    ```
-* **Fallback Logic:** If no distinct class or function chunks are extracted, `_parse_file` populates `chunks` with a single fallback item representing the entire file:
-  ```python
-  {
-      "type": "file",
-      "name": "<filename.ext>",
-      "content": "..."
-  }
-  ```
+* **Workflow:**
+  1. Verifies the file extension exists in `self.languages`.
+  2. Opens and reads file as text (`utf-8`). Returns `None` if a `UnicodeDecodeError` occurs.
+  3. Parses raw bytes using `tree_sitter.Parser`.
+  4. Calls `_extract_chunks()` recursively starting at `tree.root_node`.
+  5. Fallback behavior: If no structural chunks (classes or functions) are identified, creates a single chunk covering the entire file (`type`: `"file"`).
+* **Returns:** A dictionary containing file details (`path`, `language`, `code`, `chunks`), or `None` if invalid.
 
 ---
 
 #### `_extract_chunks(node, code_bytes: bytes, chunks: List[Dict[str, Any]])`
-Recursively traverses a Tree-Sitter AST node to identify high-level code structures (classes and functions) and append them to the `chunks` list.
+Traverses the Tree-sitter AST nodes recursively to locate specific code structures.
 
-* **Detected Node Types:**
-  * **Class:** Matches node types containing `"class_definition"`, `"class_declaration"`, or `"type_declaration"`.
-    * Output schema:
-      ```python
-      {
-          "type": "class",
-          "name": "<name>",
-          "content": "<source_code_substring>"
-      }
-      ```
-  * **Function/Method:** Matches node types containing `"function_definition"`, `"function_declaration"`, or `"method_definition"`.
-    * Output schema:
-      ```python
-      {
-          "type": "function",
-          "name": "<name>",
-          "content": "<source_code_substring>"
-      }
-      ```
-* **Recursive Step:** If the current node type does not match class or function definitions, the function recurses into all child nodes (`node.children`).
+##### Extracted Types:
+* **Class Chunk (`type: "class"`):** Triggered when `node.type` contains `"class_definition"`, `"class_declaration"`, or `"type_declaration"`.
+* **Function Chunk (`type: "function"`):** Triggered when `node.type` contains `"function_definition"`, `"function_declaration"`, or `"method_definition"`.
+
+If a node matches a class or function declaration, its content slice is extracted and added to `chunks`, and child nodes are not traversed further. Otherwise, the method recursively visits each child node (`node.children`).
 
 ---
 
 #### `_get_node_name(node, code_bytes: bytes) -> str`
-Helper method that scans a node's immediate children to retrieve its identifier/name string.
+Extracts the name/identifier of a class or function node.
 
-* Checks if a child node has a type equal to `"identifier"` or `"name"`.
-* Decodes the node's byte range (`child.start_byte:child.end_byte`) to string using UTF-8 (with `replace` error handling).
-* **Returns:** The identifier string if found, or `"unknown"` if no child matching `"identifier"` or `"name"` exists.
+* Iterates over `node.children`.
+* If a child has `type == "identifier"` or `type == "name"`, decodes its byte slice to a string using UTF-8 (replacing encoding errors).
+* Returns `"unknown"` if no identifier or name child node is found.
 
 ---
 
-## Data Structures Summary
+## Data Flow Diagram
 
-### Output Schema of `ASTParser.parse()`
-
-```json
-{
-  "files": [
-    {
-      "path": "src/example.py",
-      "language": ".py",
-      "code": "class Example:\n    def run(self):\n        pass\n",
-      "chunks": [
-        {
-          "type": "class",
-          "name": "Example",
-          "content": "class Example:\n    def run(self):\n        pass\n"
-        }
-      ]
-    }
-  ]
-}
+```
+[ Root Directory ]
+       │
+       ▼
+ _load_gitignore()  ──> Combine (.gitignore + .docignore + Default Rules) ──> PathSpec
+       │
+       ▼
+   _traverse()      ──> Walk directory tree, prune ignored folders & match suffixes
+       │
+       ▼
+  _parse_file()     ──> Read UTF-8 bytes ──> Tree-sitter AST Parsing
+       │
+       ▼
+ _extract_chunks()  ──> Extract Classes ("class") & Functions ("function")
+       │                 └─ (Fallback to full file chunk if none found)
+       ▼
+    parse()         ──> Aggregate and return final output dictionary
 ```

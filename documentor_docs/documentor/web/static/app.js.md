@@ -2,148 +2,156 @@
 
 ## Overview
 
-The `app.js` file is the primary client-side JavaScript module for the Documentor web interface. It manages UI state, controls layout toggles (theme, chat pane, full-screen modes), dynamically constructs and renders a hierarchical directory tree for documentation, loads markdown content, and handles interactive chat capabilities with backend API endpoints.
+The `app.js` file serves as the client-side controller for the Documentor web application interface. Executed upon the `DOMContentLoaded` event, it manages user layout controls (sidebar, theme, chat panel), fetches and renders file-tree structures for existing documentation, dynamically parses and renders Markdown and Mermaid diagrams, and provides an interactive document-assisted chat interface.
 
 ---
 
-## Key Features
+## Technical Dependencies
 
-1. **Theme Management**: Light/dark mode persistent toggling using browser `localStorage`.
-2. **Workspace & Layout Controls**: Toggling chat visibility and chat full-screen layout states.
-3. **Markdown Rendering Engine Setup**: Configuration of `marked.js` options for secure and formatted text parsing.
-4. **Documentation Explorer**:
-   * Async fetching of repository document structures from `/api/docs`.
-   * Dynamic recursive construction of a file/folder tree view.
-   * Auto-loading of the first document on initial application load.
-5. **Document Viewer**: Async retrieval (`/api/docs/content`) and markdown parsing of selected documentation files.
-6. **Interactive AI Chat Interface**: Async messaging interface querying `/api/chat`, supporting loading states, formatted markdown responses, and auto-scrolling chat history.
+The script relies on the following external global browser utilities/libraries:
+
+1. **`marked`**: For rendering Markdown string content into HTML.
+2. **`mermaid`**: For rendering graphical diagrams declared within Markdown code blocks (`language-mermaid`).
+3. **`DOMPurify`**: For sanitizing HTML generated from Markdown content prior to injecting it into the DOM (used in the chat panel).
+4. **`localStorage`**: For persisting the user's theme selection (`light` or `dark`).
 
 ---
 
-## DOM Element Selectors
+## State Management
 
-The script binds to and manipulates the following elements upon DOM load:
-
-| Selector | DOM Element Reference | Functionality |
-| :--- | :--- | :--- |
-| `#docs-list` | `docsList` | Container list for the document file tree navigation. |
-| `#viewer-content` | `viewerContent` | Main container pane where markdown content is rendered. |
-| `#chat-form` | `chatForm` | Form element containing the chat query submission interface. |
-| `#chat-input` | `chatInput` | Input field for user chat messages. |
-| `#chat-history` | `chatHistory` | Display container for user and bot chat messages. |
-| `#toggle-chat-btn` | `toggleChatBtn` | Button to toggle visibility of the chat pane. |
-| `#chat-section` | `chatSection` | Container wrapping the entire chat UI. |
-| `.workspace-grid` | `workspaceGrid` | Parent container element controlling overall workspace layout modes. |
-| `#toggle-theme-btn` | `toggleThemeBtn` | Button to toggle between light and dark themes. |
-| `#fullscreen-chat-btn` | `fullscreenChatBtn` | Button to expand chat section into full-screen mode. |
+* **`chatHistoryArr`**: An array of message objects (`{ role: 'user' | 'assistant', content: string }`) maintained in memory to preserve conversation history across chat requests.
 
 ---
 
-## Configuration & UI Toggles
+## Detailed Components & Logical Modules
 
-### Theme Toggle
-* **Initialization**: On initial script execution, reads `localStorage.getItem('theme')`. If set to `'light'`, it applies the `light-mode` CSS class to `document.documentElement`.
-* **Event Listener**: Clicking `toggleThemeBtn` toggles the `light-mode` class on `document.documentElement` and persists the user preference (`'light'` or `'dark'`) into `localStorage`.
+### 1. Theme Management
 
-### Workspace Layout Controls
-* **Full-screen Chat**: Clicking `fullscreenChatBtn` toggles the `chat-fullscreen` class on `.workspace-grid`.
-* **Chat Toggle**: Clicking `toggleChatBtn` toggles the `hidden` class on `chatSection`.
-  * If hidden: removes `chat-open` and `chat-fullscreen` classes from `workspaceGrid`.
-  * If visible: adds `chat-open` class to `workspaceGrid`.
+Checks `localStorage` on load and applies the `light-mode` class to the root HTML element if configured. Clicking `#toggle-theme-btn`:
+* Toggles the `light-mode` CSS class on `document.documentElement`.
+* Updates `localStorage` with `'light'` or `'dark'`.
+* Re-initializes `mermaid` with either the `'default'` (light) or `'dark'` theme.
 
-### Marked JS Options
-The external `marked` library is initialized with the following security and formatting options:
 ```javascript
-marked.setOptions({
-    headerIds: false,
-    mangle: false,
-    breaks: true
-});
+// LocalStorage check and theme toggle listener snippet
+if (localStorage.getItem('theme') === 'light') {
+    document.documentElement.classList.add('light-mode');
+}
 ```
 
 ---
 
-## Functions & Core Logic
+### 2. Workspace Layout & Drawer Controls
 
-### `loadDocs()`
+The layout uses CSS classes on `.workspace-grid` and UI containers to toggle visibility:
 
-Fetches the available documentation list for the repository path `.` and builds the tree UI.
-
-* **API Request**: `GET /api/docs?path=.`
-* **Process**:
-  1. Requests documentation file list from backend.
-  2. Clears `#docs-list`.
-  3. Displays an empty state message if no documents exist.
-  4. Parses array of file path strings into a nested tree object.
-  5. Invokes internal recursive helper `renderTree(node, parentEl)` to build `<ul>`/`<li>` elements:
-     * **Files (`tree-file`)**: Prepends `📄 `, adds event listeners for active selection, and calls `loadDocContent(repoPath, doc)`.
-     * **Folders (`tree-folder`)**: Prepends `📂 `, renders nested `<ul>` (`tree-nested`), and adds click handlers to collapse/expand folders, updating icon states (`📁` / `📂`).
-  6. Automatically triggers a `click` event on the first `.tree-file` found in the list.
-* **Error Handling**: Displays an error message inside `docsList` if the network request fails or returns a non-OK HTTP status.
+| Element ID / Selector | Action Target | Description |
+| :--- | :--- | :--- |
+| `#fullscreen-chat-btn` | `.workspace-grid` | Toggles class `chat-fullscreen`. |
+| `#toggle-sidebar-btn` | `#docs-sidebar`, `.workspace-grid`, `#sidebar-stub` | Hides sidebar (`hidden`), updates grid (`sidebar-hidden`), reveals sidebar stub. |
+| `#open-sidebar-btn` | `#docs-sidebar`, `.workspace-grid`, `#sidebar-stub` | Restores sidebar, removes `sidebar-hidden` from grid, hides stub. |
+| `#close-chat-btn` | `#chat-section`, `.workspace-grid` | Hides chat section (`hidden`), removes `chat-open` and `chat-fullscreen` classes. |
+| `#toggle-chat-btn` | `#chat-section`, `.workspace-grid` | Toggles chat section visibility. Adjusts `chat-open` and `chat-fullscreen` classes accordingly. |
 
 ---
 
-### `loadDocContent(repoPath, doc)`
+### 3. Markdown & Mermaid Configuration
 
-Retrieves and displays the content of a selected documentation file.
+`marked` is configured with a custom renderer instance to safely handle external links and convert Mermaid syntax:
 
-* **Parameters**:
-  * `repoPath` *(string)*: Root path context (defaults to `"."`).
-  * `doc` *(string)*: Relative file path of the document to load.
-* **API Request**: `GET /api/docs/content?path=<encoded_repoPath>&doc=<encoded_doc>`
-* **Process**:
-  1. Sets `viewerContent` HTML to `<p>Loading...</p>`.
-  2. Fetches content from the API.
-  3. Renders the retrieved raw text as parsed Markdown using `marked.parse(data.content)`.
-* **Error Handling**: Updates `viewerContent` with an inline error message styled with `--error` color if the fetch fails.
+* **Code Block Overriding**: Intercepts code blocks where `language === 'mermaid'` and returns a wrapper `<div class="mermaid">${code}</div>`.
+* **Link Overriding**: Intercepts link rendering to force external targets via `target="_blank" rel="noopener noreferrer"`.
+* **Parser Options**:
+  * `headerIds: false`
+  * `mangle: false`
+  * `breaks: true`
 
----
-
-### Chat System Logic
-
-#### `chatForm` Submit Event
-* **Parameters sent via POST**:
-  * `query`: Trimmed user query string from `chatInput`.
-  * `path`: `"."`
-  * `model`: `""` (relies on backend defaults)
-* **Process**:
-  1. Prevents default form submission.
-  2. Extracts and validates non-empty query string.
-  3. Appends user message to history via `appendMessage('user', query, false)`.
-  4. Disables `chatInput`.
-  5. Appends temporary bot message placeholder via `appendMessage('bot', 'Thinking...', false)` and retains its unique ID (`loaderId`).
-  6. Sends POST request to `/api/chat` with JSON body payload.
-  7. On success, updates the bot loader message using `updateMessage(loaderId, data.answer, true)` to parse and display markdown.
-  8. On failure, updates the bot loader message with the error text styled in `--error` color.
-  9. Re-enables `chatInput` and restores focus.
-
-#### `appendMessage(role, text, useMarkdown = false)`
-* **Parameters**:
-  * `role` *(string)*: Message sender CSS modifier (`'user'` or `'bot'`).
-  * `text` *(string)*: Raw message text or markdown content.
-  * `useMarkdown` *(boolean)*: Toggles standard text rendering vs `marked.parse()` markdown rendering.
-* **Behavior**:
-  * Generates unique message ID: `'msg-' + Date.now()`.
-  * Appends message `<div>` element to `chatHistory`.
-  * Automatically scrolls `chatHistory` container to the bottom.
-* **Returns**: Generated element string ID (`id`).
-
-#### `updateMessage(id, text, useMarkdown = false)`
-* **Parameters**:
-  * `id` *(string)*: DOM element ID of the message to update.
-  * `text` *(string)*: New text content or markdown.
-  * `useMarkdown` *(boolean)*: Toggles standard text rendering vs `marked.parse()` markdown rendering.
-* **Behavior**:
-  * Finds targeted DOM element by ID.
-  * Replaces its contents with raw text or parsed markdown HTML.
-  * Automatically scrolls `chatHistory` container to the bottom.
+`mermaid` initialization is triggered on startup with `startOnLoad: false` and theme dynamically determined based on whether `light-mode` is present on the document element.
 
 ---
 
-## API Integration Reference
+### 4. Documentation Explorer
 
-| Endpoint | Method | Parameters / Body | Description |
+#### `loadDocs()`
+* **API Call**: `GET /api/docs?path=.`
+* **Flow**:
+  1. Requests documentation file list for repository path `"."`.
+  2. Handles errors or empty document responses by showing status messages in `#docs-list` and `#viewer-content`.
+  3. Transforms flat string array of relative document paths (`data.docs`) into a nested JavaScript object tree (`tree`).
+  4. Calls `renderTree(tree, docsList)` to build DOM elements recursively.
+  5. Automatically executes a click on the first rendered file (`.tree-file`) to load its content.
+
+#### `renderTree(node, parentEl)`
+* **Parameters**:
+  * `node`: Object containing sub-trees or string values (representing file relative paths).
+  * `parentEl`: HTML element container.
+* **Logic**:
+  * Sorts child keys alphabetically.
+  * Creates an `<ul>` list element assigned class `tree-root` (for root level) or `tree-nested` (for nested subfolders).
+  * **Leaf Nodes (Files)**: Appends `<li>` with class `tree-file`. Clicking a file highlights it as `.active` and triggers `loadDocContent(repoPath, filePath)`.
+  * **Branch Nodes (Folders)**: Appends `<li>` with class `tree-folder` containing a clickable `<span>` element (`📂` or `📁`). Clicking toggles the nested `<ul>` visibility and updates folder icons.
+
+#### `loadDocContent(repoPath, doc)`
+* **Parameters**:
+  * `repoPath`: Repository path identifier string (default: `"."`).
+  * `doc`: Relative file path string.
+* **API Call**: `GET /api/docs/content?path=<repoPath>&doc=<doc>`
+* **Flow**:
+  1. Shows `Loading...` prompt in `#viewer-content`.
+  2. Parses returned Markdown string using `marked.parse(data.content)`.
+  3. Replaces `#viewer-content` inner HTML with the parsed output.
+
+---
+
+### 5. Chat System Integration
+
+#### Form Submission (`#chat-form`)
+* Intercepts `submit` event.
+* Captures user string query from `#chat-input`.
+* Appends user query to UI using `appendMessage('user', query, false)`.
+* Pushes `{ role: 'user', content: query }` into `chatHistoryArr`.
+* Appends temporary loading message for the assistant using `appendMessage('bot', 'Thinking...', false)`.
+* **API Call**:
+  * `POST /api/chat`
+  * **Payload**:
+    ```json
+    {
+      "query": "User string query",
+      "path": ".",
+      "model": "",
+      "history": [...] // Previous elements in chatHistoryArr excluding current query
+    }
+    ```
+* **Response Processing**:
+  * Replaces loading message using `updateMessage(loaderId, data.answer, true)`.
+  * Pushes assistant answer into `chatHistoryArr` as `{ role: 'assistant', content: data.answer }`.
+  * Handles errors by updating loading message text to red (`var(--error)`).
+  * Restores chat input state and refocuses input.
+
+#### Helper Functions
+
+##### `appendMessage(role, text, useMarkdown = false)`
+* Creates a message element (`div.chat-msg.${role}`) assigned a unique ID (`msg-<timestamp>`).
+* If `useMarkdown` is `true`:
+  * Parses `text` using `marked.parse()`.
+  * Sanitizes HTML via `DOMPurify.sanitize()` configured to allow `div` tags and `class` attributes.
+  * Schedules diagram rendering on child nodes via `mermaid.run()`.
+* If `useMarkdown` is `false`:
+  * Directly sets `textContent` to prevent HTML parsing.
+* Scrolls `#chat-history` to bottom.
+* Returns generated message element ID.
+
+##### `updateMessage(id, text, useMarkdown = false)`
+* Locates existing DOM element by ID.
+* Applies Markdown parsing, sanitization, and Mermaid rendering if `useMarkdown` is true; otherwise updates text content.
+* Scrolls `#chat-history` to bottom.
+
+---
+
+## API Endpoints Used
+
+| Method | Endpoint | Query Parameters / Payload | Purpose |
 | :--- | :--- | :--- | :--- |
-| `/api/docs` | `GET` | `path` (Query string) | Fetches array of document paths (`data.docs`). |
-| `/api/docs/content` | `GET` | `path`, `doc` (Query strings) | Fetches file content string (`data.content`) for a given document. |
-| `/api/chat` | `POST` | `{ query: string, path: string, model: string }` | Submits chat prompt and returns generated answer string (`data.answer`). |
+| `GET` | `/api/docs` | `path` | Retrieves list of documentation relative paths. |
+| `GET` | `/api/docs/content` | `path`, `doc` | Fetches raw content of specified documentation file. |
+| `POST` | `/api/chat` | `{ query, path, model, history }` | Submits prompt and history array to retrieve AI response. |

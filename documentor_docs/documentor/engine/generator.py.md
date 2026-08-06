@@ -2,145 +2,148 @@
 
 ## Overview
 
-The `documentor/engine/generator.py` module houses the `LLMGenerator` class, which serves as the core orchestration component for multi-pass documentation generation. Utilizing the `litellm` library, this module interfaces with Language Models (LLMs) to generate repository documentation—specifically architectural overviews, individual module/file guides, and quickstart documentation—while handling API rate limits through exponential backoff retries.
+The `documentor/engine/generator.py` module defines the `LLMGenerator` class, which serves as the multi-pass documentation generation engine within the system. It leverages the `litellm` library to interface with various Large Language Model (LLM) providers using standard API keys set in the environment.
+
+The generator operates through distinct passes to produce:
+1. An overall architecture overview (`ARCHITECTURE.md`) with Mermaid.js diagrams based on a dependency graph.
+2. Individual detailed module documentation guides for each source file (`documentor_docs/<file_path>.md`).
+3. A quickstart and setup guide (`QUICKSTART.md`) based on contextual search results extracted from a vector store.
 
 ---
 
-## Class Summary
+## Class: `LLMGenerator`
 
-### `LLMGenerator`
+The `LLMGenerator` class encapsulates configuration settings for LLM invocation, handles rate limits with exponential backoff, and provides methods to trigger specific documentation generation tasks or the complete pipeline.
 
-The primary class defined in this module. It manages prompt construction, interactions with LLMs via LiteLLM, error handling for rate limits, and step-by-step pipeline execution for documentation generation.
+### Initialization
 
----
+```python
+def __init__(self, model: str, temperature: float = 0.0)
+```
 
-## Methods & Key Components
-
-### `__init__(self, model: str, temperature: float = 0.0)`
-Initializes the `LLMGenerator` instance.
-
-* **Parameters:**
-  * `model` (`str`): The target LLM model identifier (passed to LiteLLM).
-  * `temperature` (`float`, default `0.0`): The temperature setting for model completion calls. Defaults to `0.0` for maximum determinism.
+- **`model`** (`str`): The name/identifier of the target model recognized by `litellm`.
+- **`temperature`** (`float`, default `0.0`): Controls model randomness. Set to `0.0` by default to maximize determinism and factual accuracy.
 
 ---
 
-### `_call_llm_with_retry(self, prompt: str, max_retries: int = 5) -> str`
-A helper method that executes LLM completion calls wrapped in exponential backoff logic to handle rate limiting and API throttling.
+## Key Methods
 
-* **Parameters:**
-  * `prompt` (`str`): The user prompt to be sent to the LLM.
-  * `max_retries` (`int`, default `5`): Maximum number of attempts before raising an exception.
-* **Behavior:**
-  * Calls `litellm.completion` using the specified model, message role (`"user"`), and temperature.
-  * Catches `Exception` instances. If the error message indicates rate limiting, high demand, HTTP 429, or too many requests, it sleeps for $2^{\text{attempt}}$ seconds before retrying.
-  * Raises the exception if all retries fail or if the error is non-retryable.
-* **Returns:**
-  * `str`: The text content of the LLM's response (`response.choices[0].message.content`).
+### 1. `_call_llm_with_retry`
+
+```python
+def _call_llm_with_retry(self, prompt: str, max_retries: int = 5) -> str
+```
+
+Wraps calls to `litellm.completion` with retry logic and exponential backoff to handle rate limits, server overload, or transient errors.
+
+* **Behavior**:
+  * Loops up to `max_retries` times (default is `5`).
+  * Sends a single user message containing the `prompt` to `litellm.completion`.
+  * Catches exceptions and checks error messages for key strings: `"rate limit"`, `"high demand"`, `"429"`, or `"too many requests"`.
+  * If a rate limit or demand error is detected, sleeps for $2^{\text{attempt}}$ seconds before retrying.
+  * Re-raises the exception if all retries are exhausted or if an unhandled error occurs.
 
 ---
 
-### `generate_architecture_overview(self, graph: Dict[str, Any]) -> str`
-Executes Pass A of the generation process to create a high-level system overview.
+### 2. `generate_architecture_overview`
 
-* **Parameters:**
+```python
+def generate_architecture_overview(self, graph: Dict[str, Any]) -> str
+```
+
+Performs **Pass A** of the documentation pipeline.
+
+* **Parameters**:
   * `graph` (`Dict[str, Any]`): Dependency graph of the codebase containing file dependencies and key entities (classes/functions).
-* **Behavior:**
-  * Serializes the `graph` dictionary into formatted JSON (`indent=2`).
-  * Constructs a prompt instructing the LLM to write an `ARCHITECTURE.md` file including a Mermaid.js interaction diagram.
-  * Enforces a prompt-level constraint prohibiting hallucination.
-* **Returns:**
-  * `str`: The generated `ARCHITECTURE.md` content.
+* **Behavior**:
+  * Formats the `graph` as a JSON string.
+  * Construct a prompt instructing the LLM to act as a software architect and generate an `ARCHITECTURE.md` file featuring Mermaid.js interaction diagrams.
+  * Applies anti-hallucination prompt constraints.
+  * Returns the LLM-generated documentation string.
 
 ---
 
-### `generate_module_guides(...) -> None`
-Executes Pass B of the generation process, writing standalone markdown documentation guides for individual source code files in the repository.
+### 3. `generate_module_guides`
 
-* **Parameters:**
-  * `vector_store` (`Any`): Vector store reference (unused directly within this pass).
-  * `parsed_data` (`Dict[str, Any]`): Dictionary containing code analysis metadata under the `"files"` key.
-  * `progress_callback` (`Optional[Callable[[str], None]]`, optional): Optional callback function for status messages.
-  * `write_callback` (`Optional[Callable[[str, str], None]]`, optional): Callback function accepting `(file_path, content)` to save generated output.
-  * `skip_files` (`Optional[Set[str]]`, optional): Set of output file paths (`documentor_docs/<path>.md`) to skip if already processed.
-  * `only_files` (`Optional[Set[str]]`, optional): Set of source file paths to process selectively.
-* **Behavior:**
-  1. Iterates through file entries inside `parsed_data["files"]`.
-  2. Filters out files not present in `only_files` (if specified).
-  3. Skips files if their target doc path exists in `skip_files`.
-  4. Skips files whose source code length is under 50 stripped characters.
-  5. Formats a prompt containing the source code and file path.
-  6. Calls `_call_llm_with_retry` and executes `write_callback` with the output target path (`documentor_docs/<path>.md`) and generated content.
-
----
-
-### `generate_quickstart(self, vector_store: Any) -> str`
-Executes Pass C of the generation process, writing setup and quickstart documentation based on code context extracted from the vector store.
-
-* **Parameters:**
-  * `vector_store` (`Any`): An object implementing a `retrieve` method.
-* **Behavior:**
-  * Invokes `vector_store.retrieve("environment variables install setup run command", n_results=5)`.
-  * Joins retrieved context documents with `\n---\n`.
-  * Constructs a prompt for generating `QUICKSTART.md` strictly using the context snippets provided.
-* **Returns:**
-  * `str`: The generated `QUICKSTART.md` content.
-
----
-
-### `run_full_pipeline(...) -> None`
-Orchestrates the complete multi-pass generation execution.
-
-* **Parameters:**
-  * `parsed_data` (`Dict[str, Any]`): Parsed codebase metadata.
-  * `vector_store` (`Any`): Vector store for context retrieval.
-  * `mapper` (`Any`): Object implementing `map_dependencies(parsed_data)` to generate the dependency graph.
-  * `progress_callback` (`Optional[Callable[[str], None]]`, optional): Callback for emitting progress updates.
-  * `write_callback` (`Optional[Callable[[str, str], None]]`, optional): Callback for writing output files.
-  * `skip_files` (`Optional[Set[str]]`, optional): Set of target document paths to skip.
-  * `only_files` (`Optional[Set[str]]`, optional): Set of specific source paths to generate documentation for.
-* **Execution Flow:**
-  1. Checks if `only_files` is set. If `only_files` is **not** set:
-     * Checks if `documentor_docs/ARCHITECTURE.md` is in `skip_files`. If not, maps dependencies via `mapper.map_dependencies(parsed_data)`, generates the architecture overview, and writes `documentor_docs/ARCHITECTURE.md`.
-     * Checks if `documentor_docs/QUICKSTART.md` is in `skip_files`. If not, generates the quickstart documentation and writes `documentor_docs/QUICKSTART.md`.
-  2. Invokes `generate_module_guides` with all supplied arguments to document individual source files.
-
----
-
-## Workflow Diagram
-
-```
-                       run_full_pipeline()
-                                |
-       +------------------------+------------------------+
-       | (If only_files is None)                         |
-       v                                                 v
-Generate ARCHITECTURE.md                          Generate QUICKSTART.md
-(mapper.map_dependencies +                        (vector_store.retrieve +
- generate_architecture_overview)                   generate_quickstart)
-       |                                                 |
-       +------------------------+------------------------+
-                                |
-                                v
-                   generate_module_guides()
-             Iterates over parsed_data["files"]
-                                |
-                                v
-                     _call_llm_with_retry()
-              (LiteLLM call with Exponential Backoff)
-                                |
-                                v
-                         write_callback()
+```python
+def generate_module_guides(
+    self, 
+    vector_store: Any, 
+    parsed_data: Dict[str, Any], 
+    progress_callback: Optional[Callable[[str], None]] = None,
+    write_callback: Optional[Callable[[str, str], None]] = None,
+    skip_files: Optional[Set[str]] = None,
+    only_files: Optional[Set[str]] = None
+) -> None
 ```
 
+Performs **Pass B** of the documentation pipeline, generating individual module documentation files.
+
+* **Parameters**:
+  * `vector_store` (`Any`): Vector store reference (reserved for contextual information).
+  * `parsed_data` (`Dict[str, Any]`): Dictionary containing codebase metadata, specifically expecting a key `"files"` containing a list of file dictionaries with `path` and `code`.
+  * `progress_callback` (`Callable[[str], None]`, optional): Function invoked with status message updates.
+  * `write_callback` (`Callable[[str, str], None]`, optional): Function invoked to write generated content to target file paths (`write_callback(file_path, content)`).
+  * `skip_files` (`Set[str]`, optional): Set of destination paths to skip if already processed.
+  * `only_files` (`Set[str]`, optional): Set of specific source file paths to process exclusively.
+* **Execution Logic**:
+  1. Iterates through each file entry in `parsed_data["files"]`.
+  2. If `only_files` is specified and the current file `path` is not in it, skips the file.
+  3. Constructs target destination path: `doc_path = f"documentor_docs/{path}.md"`.
+  4. Skips generation if `doc_path` exists in `skip_files`.
+  5. Skips files where `code.strip()` contains fewer than 50 characters to reduce unnecessary token consumption.
+  6. Constructs a prompt with the source code and strict anti-hallucination rules.
+  7. Invokes `_call_llm_with_retry` and writes the output using `write_callback` if provided.
+
 ---
 
-## Exception & Retry Mechanics
+### 4. `generate_quickstart`
 
-The internal call method `_call_llm_with_retry` intercepts runtime exceptions resulting from LLM interaction. It identifies standard rate limit errors by checking for the presence of the following substrings (case-insensitive) within the exception string:
-* `"rate limit"`
-* `"high demand"`
-* `"429"`
-* `"too many requests"`
+```python
+def generate_quickstart(self, vector_store: Any) -> str
+```
 
-When encountered, execution pauses via `time.sleep(2 ** attempt)` for up to 5 attempts ($2^0=1\text{s}, 2^1=2\text{s}, 2^2=4\text{s}, 2^3=8\text{s}, 2^4=16\text{s}$) before re-raising the error.
+Performs **Pass C** of the documentation pipeline.
+
+* **Parameters**:
+  * `vector_store` (`Any`): Instance with a `retrieve` method used to pull installation and setup contexts.
+* **Behavior**:
+  * Queries `vector_store.retrieve("environment variables install setup run command", n_results=5)`.
+  * Extracts retrieved context documents and formats them separated by `---`.
+  * Constructs a prompt requesting a `QUICKSTART.md` file based strictly on the retrieved context snippets.
+  * Instructs the LLM to state if insufficient information exists rather than guessing dependencies or commands.
+  * Returns the LLM-generated output string.
+
+---
+
+### 5. `run_full_pipeline`
+
+```python
+def run_full_pipeline(
+    self, 
+    parsed_data: Dict[str, Any], 
+    vector_store: Any, 
+    mapper: Any, 
+    progress_callback: Optional[Callable[[str], None]] = None,
+    write_callback: Optional[Callable[[str, str], None]] = None,
+    skip_files: Optional[Set[str]] = None,
+    only_files: Optional[Set[str]] = None
+) -> None
+```
+
+Orchestrates the entire multi-pass execution sequence (`ARCHITECTURE.md` $\rightarrow$ `QUICKSTART.md` $\rightarrow$ Module Guides).
+
+* **Parameters**:
+  * `parsed_data` (`Dict[str, Any]`): Parsed source repository metadata.
+  * `vector_store` (`Any`): Vector database handle for context lookup.
+  * `mapper` (`Any`): Object containing a `map_dependencies(parsed_data)` method to build the repository dependency graph.
+  * `progress_callback` (`Callable[[str], None]`, optional): Status updates callback.
+  * `write_callback` (`Callable[[str, str], None]`, optional): File output writer callback.
+  * `skip_files` (`Set[str]`, optional): Set of output documentation paths to bypass.
+  * `only_files` (`Set[str]`, optional): Set of source files to target exclusively.
+
+* **Pipeline Flow**:
+  1. Checks if target filtering (`only_files`) is inactive:
+     - **Architecture Pass**: If `documentor_docs/ARCHITECTURE.md` is not in `skip_files`, generates dependency graph via `mapper.map_dependencies(parsed_data)`, runs `generate_architecture_overview`, and invokes `write_callback`.
+     - **Quickstart Pass**: If `documentor_docs/QUICKSTART.md` is not in `skip_files`, runs `generate_quickstart`, and invokes `write_callback`.
+  2. **Module Guides Pass**: Calls `generate_module_guides` with supplied file filter options and callbacks.

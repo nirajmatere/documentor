@@ -2,136 +2,162 @@
 
 ## Overview
 
-The `documentor/web/main.py` module defines the backend Web API server for the **Documentor** application using **FastAPI**. It exposes HTTP endpoints that interface with the application's engine components (`ASTParser`, `VectorStore`, `DependencyMapper`, and `LLMGenerator`) to perform documentation generation, context-aware RAG (Retrieval-Augmented Generation) chat queries, and document retrieval. Additionally, it mounts and serves static files for the web user interface.
+The `documentor/web/main.py` file serves as the web server entry point for the **Documentor** application. Built using **FastAPI**, it exposes RESTful API endpoints for generating codebase documentation, querying the generated vector store via an AI chat interface, listing generated documentation files, and reading document contents. Additionally, it mounts static web frontend files for user interaction.
 
 ---
 
-## Configuration and Initialization
+## Dependencies & Imports
 
-Upon loading the module, the following initialization steps occur:
+### Internal Engine & Utility Imports
+* `documentor.cli.main.load_config`: Loads CLI and environment configuration settings globally upon server initialization.
+* `documentor.engine.parser.ASTParser`: Parses target source code into Abstract Syntax Trees (ASTs).
+* `documentor.engine.vectorizer.VectorStore`: Manages chunking, storing, and retrieving semantic vector embeddings (Chroma DB).
+* `documentor.engine.mapper.DependencyMapper`: Maps dependencies across the parsed codebase.
+* `documentor.engine.generator.LLMGenerator`: Runs the documentation generation pipeline using Large Language Models (LLMs).
 
-1. **Configuration Loading:** Calls `load_config()` from `documentor.cli.main` globally to populate application settings.
-2. **FastAPI App Creation:** Instantiates the application `app = FastAPI(title="Documentor API")`.
-3. **CORS Middleware Setup:** Adds `CORSMiddleware` to allow cross-origin requests from any origin (`"*"`) with standard headers and methods.
-4. **Static File Directory Resolution:** Sets `STATIC_DIR` relative to `documentor/web/main.py` at `./static`.
+### External Imports
+* `fastapi`: Framework for building APIs (`FastAPI`, `HTTPException`, `StaticFiles`, `CORSMiddleware`).
+* `pydantic`: Schema validation using `BaseModel`.
+* `litellm`: Multi-provider LLM completion library.
+* `pathlib.Path`: Cross-platform filesystem path manipulations.
+* `os`: Used for reading environment variables (`MODEL_NAME`).
+
+---
+
+## Initial Server Configuration
+
+Upon importing the module, the configuration is initialized globally:
+
+```python
+from documentor.cli.main import load_config
+load_config()
+
+app = FastAPI(title="Documentor API")
+```
+
+### CORS Middleware
+To permit cross-origin requests, `CORSMiddleware` is configured with open permissions:
+* **Allowed Origins:** `["*"]`
+* **Allow Credentials:** `True`
+* **Allowed Methods:** `["*"]`
+* **Allowed Headers:** `["*"]`
 
 ---
 
 ## Data Models (Pydantic Schemas)
 
 ### `GenerateRequest`
-Defines the request body for triggering documentation generation.
+Defines the payload required to trigger documentation generation.
+* **`path`** (`str`): Absolute or relative filesystem path to the target codebase directory.
+* **`model`** (`str`, optional): Specific LLM model to use. Defaults to `""`.
 
-| Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `path` | `str` | Required | Target directory path containing the codebase to document. |
-| `model` | `str` | `""` | Optional LLM model identifier. If empty, falls back to `MODEL_NAME` env var or `"gemini/gemini-3.6-flash"`. |
+### `ChatMessage`
+Represents an individual message in a chat history context.
+* **`role`** (`str`): Author role (e.g., `"user"`, `"assistant"`, `"system"`).
+* **`content`** (`str`): Message body content.
 
 ### `ChatRequest`
-Defines the request body for RAG-based chat interactions.
-
-| Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `query` | `str` | Required | User's search query or prompt regarding the codebase. |
-| `path` | `str` | Required | Target directory path where the vector store resides. |
-| `model` | `str` | `""` | Optional LLM model identifier. If empty, falls back to `MODEL_NAME` env var or `"gemini/gemini-3.6-flash"`. |
+Defines the payload for sending a chat query regarding the codebase.
+* **`query`** (`str`): User's query or prompt.
+* **`path`** (`str`): Target codebase path containing the vector database.
+* **`model`** (`str`, optional): Specific LLM model to use. Defaults to `""`.
+* **`history`** (`list[ChatMessage]`, optional): List of preceding chat messages for multi-turn conversations. Defaults to `[]`.
 
 ---
 
 ## API Endpoints
 
 ### 1. `POST /api/generate`
-Triggers the full documentation generation pipeline for a target directory.
+Executes the full AST parsing, vector embedding, dependency mapping, and LLM documentation generation workflow for a specified repository directory.
 
-* **Function:** `api_generate(req: GenerateRequest)`
-* **Workflow:**
-  1. Resolves `req.path` to an absolute path (`target_path`).
-  2. Validates that `target_path` exists and is a valid directory (raises HTTP `400` if invalid).
-  3. Parses the target directory AST using `ASTParser(str(target_path)).parse()`.
-  4. Vectorizes the parsed data into Chroma DB located at `target_path / ".documentor" / "chroma"` using `VectorStore`.
-  5. Instantiates `DependencyMapper`.
-  6. Configures `LLMGenerator` with `temperature=0.0` and the selected model (uses `req.model`, `MODEL_NAME` environment variable, or defaults to `"gemini/gemini-3.6-flash"`).
-  7. Defines an internal callback `write_file(doc_path: str, content: str)` to create directories and save generated markdown files to `target_path / doc_path`.
-  8. Checks for existing markdown files in `target_path / "documentor_docs"` to build a `skip_files` set, supporting process resumption.
-  9. Executes `generator.run_full_pipeline(...)`.
-* **Response:**
-  * **Success (200):** `{"status": "success", "message": "Documentation generated successfully!"}`
-  * **Errors:**
-    * HTTP `400`: Path is not a valid directory.
-    * HTTP `500`: Pipeline failure or unhandled exception.
+* **Request Body:** `GenerateRequest`
+* **Path Validation:** Validates if `path` points to an existing directory. Returns `400 Bad Request` if invalid.
+* **Process Flow:**
+  1. Instantiates `ASTParser` on `target_path` and runs `.parse()`.
+  2. Initializes `VectorStore` located at `target_path / ".documentor" / "chroma"` and calls `chunk_and_store(parsed_data)`.
+  3. Instantiates `DependencyMapper()`.
+  4. Resolves the model: Uses `req.model` if provided, otherwise checks the `MODEL_NAME` environment variable, defaulting to `"gemini/gemini-3.6-flash"`.
+  5. Initializes `LLMGenerator` with `temperature=0.0`.
+  6. Inspects `target_path / "documentor_docs"` for existing `.md` files to construct a `skip_files` set (enables process resuming).
+  7. Calls `generator.run_full_pipeline(...)` passing a file-writing callback function `write_file`.
+* **Responses:**
+  * `200 OK`: `{"status": "success", "message": "Documentation generated successfully!"}`
+  * `400 Bad Request`: Directory path is invalid.
+  * `500 Internal Server Error`: Execution or generation failure.
 
 ---
 
 ### 2. `POST /api/chat`
-Provides RAG-based Q&A capabilities against the stored vector embeddings of the codebase.
+Provides an interactive chat interface over the generated codebase vector database.
 
-* **Function:** `api_chat(req: ChatRequest)`
-* **Workflow:**
-  1. Checks for the vector database directory at `target_path / ".documentor" / "chroma"`. Raises HTTP `400` if absent.
-  2. Queries `VectorStore` for the top 5 relative context snippets (`n_results=5`).
-  3. Joins retrieved snippets with `"\n---\n"`.
-  4. Formulates a strict prompt specifying:
-     * Restrict responses strictly to the provided codebase context.
-     * Do not answer general or out-of-scope questions.
-     * Do not hallucinate; acknowledge missing information.
-     * Explicitly cite code filenames in the answer.
-  5. Calls `litellm.completion` with `temperature=0.0`.
-* **Response:**
-  * **Success (200):** `{"answer": "<LLM response string>"}`
-  * **Errors:**
-    * HTTP `400`: Missing vector store (documentation has not been generated).
-    * HTTP `500`: Retrieval or LLM execution failure.
+* **Request Body:** `ChatRequest`
+* **Path Check:** Verifies that `target_path / ".documentor" / "chroma"` exists. Returns `400 Bad Request` if missing.
+* **Process Flow:**
+  1. Retrieves top 5 matching document chunks from `VectorStore` using `vector_store.retrieve(req.query, n_results=5)`.
+  2. Constructs a system prompt incorporating the retrieved context and 4 rigid operational rules:
+     * **Rule 1:** Act as a helpful AI assistant.
+     * **Rule 2:** Do not perform direct file edits (politely refuse and suggest changes in chat).
+     * **Rule 3:** Avoid hallucinating codebase specifics.
+     * **Rule 4:** Format suggested code changes clearly in markdown.
+  3. Resolves the model (`req.model` or `MODEL_NAME` env var, fallback `"gemini/gemini-3.6-flash"`).
+  4. Constructs message list (`system` prompt, followed by `history` items, ending with the user's `query`).
+  5. Calls `litellm.completion(...)` with `temperature=0.0`.
+* **Responses:**
+  * `200 OK`: `{"answer": "<LLM response text>"}`
+  * `400 Bad Request`: Missing vector store (documentation must be generated first).
+  * `500 Internal Server Error`: Error during vector search or LLM completion.
 
 ---
 
 ### 3. `GET /api/docs`
-Lists available Markdown documentation files within the specified project path.
+Retrieves a list of generated Markdown documentation files available for a given repository.
 
-* **Function:** `api_get_docs(path: str)`
-* **Workflow:**
-  1. Validates that `path` is an existing directory (raises HTTP `400` if invalid).
-  2. Scans for top-level fallback files (`ARCHITECTURE.md`, `QUICKSTART.md`).
-  3. Recursively scans `target_path / "documentor_docs"` for `.md` files.
-  4. Formats file paths relative to `target_path` using forward slashes (`/`).
+* **Query Parameter:** `path` (`str`)
+* **Process Flow:**
+  1. Validates that `path` exists and is a directory (`400 Bad Request` if invalid).
+  2. Scans for top-level legacy documentation files (`ARCHITECTURE.md`, `QUICKSTART.md`).
+  3. Recursively scans `target_path / "documentor_docs"` for all `*.md` files.
+  4. Converts relative paths to forward-slash URL format (`/`).
 * **Response:**
-  * **Success (200):** `{"docs": ["documentor_docs/...", ...]} ` (sorted list of relative document paths)
-  * **Errors:**
-    * HTTP `400`: Target directory does not exist or is invalid.
+  * `200 OK`: `{"docs": ["documentor_docs/index.md", ...]}` (sorted array of string paths).
 
 ---
 
 ### 4. `GET /api/docs/content`
-Retrieves the raw text content of a specific documentation file.
+Fetches the text content of a specific documentation Markdown file.
 
-* **Function:** `api_get_doc_content(path: str, doc: str)`
-* **Workflow:**
-  1. Resolves `target_path` and target `doc_path` (`target_path / doc`).
-  2. **Security Check:** Ensures `doc_path` is located inside `target_path` to prevent path traversal attacks (raises HTTP `403` if breached).
-  3. Ensures the file exists (raises HTTP `404` if not found).
-  4. Reads and returns file contents encoded in UTF-8.
+* **Query Parameters:**
+  * `path` (`str`): Target project directory path.
+  * `doc` (`str`): Relative path to the target Markdown file.
+* **Security Check:** Ensures resolved `doc_path` resides strictly within `target_path` to prevent path traversal attacks (`403 Forbidden` if outside).
+* **Existence Check:** Raises `404 Not Found` if the document does not exist.
 * **Response:**
-  * **Success (200):** `{"content": "<file text content>"}`
-  * **Errors:**
-    * HTTP `403`: Access denied (attempted path traversal).
-    * HTTP `404`: Document file not found.
+  * `200 OK`: `{"content": "<raw markdown text contents>"}`
 
 ---
 
-## Static File Serving
+## Static Files Serving
 
-To serve the frontend client directly, static files are mounted at the root path (`/`):
+At the bottom of the file, static assets for the UI frontend are mounted:
 
 ```python
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 ```
 
-* **Positioning:** This mount statement is executed at the end of the file to ensure API routes (`/api/*`) take precedence over static file resolution.
-* **HTML Mode:** `html=True` allows direct serving of single-page applications or standard `index.html` files.
+* **Location:** `documentor/web/static`
+* **Route:** `/`
+* **HTML Mode:** Enabled (`html=True`), automatically serving `index.html` for root visits.
+* **Order Significance:** Mounted after all `/api` routes so that API routes take priority over static file matching.
 
 ---
 
-## Error & Security Summary
+## Error Handling & Security Summary
 
-* **Path Traversal Protection:** Implemented in `api_get_doc_content` via `doc_path.startswith(target_path)`.
-* **Path Validation:** Checks exist across endpoints (`.exists()`, `.is_dir()`) returning standard HTTP exception codes (`400`, `403`, `404`, `500`).
+| Category | Implementation Detail | Status Code |
+| :--- | :--- | :--- |
+| **Path Traversal Protection** | Evaluates `str(doc_path).startswith(str(target_path))` in `/api/docs/content` | `403 Forbidden` |
+| **Directory Validation** | Checks `.exists()` and `.is_dir()` on target repository paths | `400 Bad Request` |
+| **Vector DB Presence** | Verifies existence of `.documentor/chroma` before running queries | `400 Bad Request` |
+| **Missing Resource** | File existence check before reading document content | `404 Not Found` |
+| **Runtime Exceptions** | Wraps pipeline operations and LLM calls in `try...except` blocks | `500 Internal Server Error` |

@@ -2,185 +2,128 @@
 
 ## Overview
 
-The `documentor/cli/main.py` module serves as the primary Command-Line Interface (CLI) entry point for the **Documentor** application. Built using [Typer](https://typer.tiangolo.com/), this module handles environment configuration, coordinates the multi-step documentation generation pipeline, provides Retrieval-Augmented Generation (RAG) chat capabilities against codebase embeddings, and serves the Web UI.
+The `documentor/cli/main.py` file serves as the main Command Line Interface (CLI) entry point for the **Documentor** application. Built using the [Typer](https://typer.tiangolo.com/) framework, it integrates the core engine modules (`ASTParser`, `VectorStore`, `DependencyMapper`, and `LLMGenerator`) to provide four primary commands:
 
----
-
-## Architecture & Dependencies
-
-### External Dependencies
-* **`typer`**: Manages command-line commands, arguments, options, and colorized terminal output (`typer.secho`).
-* **`litellm`**: Provides a unified API client interface for LLM completions and manages LLM API calls.
-* **`uvicorn`**: ASGI server implementation used to run the web interface.
-* **`dotenv` (`load_dotenv`, `set_key`)**: Manages reading and writing persistent environment variable configurations.
-* **`importlib.metadata`**: Fetches the installed package version of `documentor-ai`.
-
-### Internal Modules
-* **`documentor.engine.parser.ASTParser`**: Parses codebase AST data.
-* **`documentor.engine.vectorizer.VectorStore`**: Handles vector embeddings and local Chroma DB persistence.
-* **`documentor.engine.mapper.DependencyMapper`**: Maps repository dependencies.
-* **`documentor.engine.generator.LLMGenerator`**: Orchestrates LLM prompt execution and document content generation.
+1. `configure`: Interactive setup of environment variables and API keys.
+2. `generate`: Orchestration of the multi-step documentation generation pipeline.
+3. `chat`: Interactive or single-prompt Retrieval-Augmented Generation (RAG) query tool against the indexed codebase.
+4. `serve`: Local Web UI server deployment using Uvicorn.
 
 ---
 
 ## Global Setup & Configuration
 
-### Warning & Log Suppression
-To maintain clean CLI execution output, LiteLLM debug logs and general Python warnings are suppressed upon module load:
-```python
-warnings.simplefilter("ignore")
-litellm.suppress_debug_info = True
-logging.getLogger("LiteLLM").setLevel(logging.ERROR)
-logging.getLogger("LiteLLMRouter").setLevel(logging.ERROR)
-```
+### Directory and File Constants
+* **`CONFIG_DIR`**: `Path.home() / ".documentor"` — Target directory for global application settings.
+* **`CONFIG_FILE`**: `CONFIG_DIR / "config.env"` — Environment file storing API keys and model options.
 
-### Paths & Constants
-* **`CONFIG_DIR`**: Local directory for Documentor settings (`~/.documentor`).
-* **`CONFIG_FILE`**: Key-value environment store (`~/.documentor/config.env`).
+### Warning and Log Management
+Upon module load, logging and warnings are configured to suppress verbosity from underlying components:
+* All standard Python warnings are ignored (`warnings.simplefilter("ignore")`).
+* `litellm` debug information is disabled (`litellm.suppress_debug_info = True`).
+* `LiteLLM` and `LiteLLMRouter` loggers are restricted to `logging.ERROR` level.
 
 ---
 
 ## Functions Reference
 
-### Helper Functions
+### `version_callback(value: bool)`
+Checks if the version option was passed. If `value` is `True`, retrieves the installed package version for `documentor-ai` using `importlib.metadata.version`. If not installed as a package, reports `unknown`. Terminates execution via `typer.Exit()`.
 
-#### `version_callback(value: bool)`
-* **Purpose**: Callback function triggered when `--version` or `-v` flags are provided.
-* **Behavior**: Queries package metadata for `documentor-ai`. Prints the version string (or `unknown` if uninstalled) and exits execution.
+### `main(version: Optional[bool])`
+The root CLI app callback.
+* **Option**: `--version` / `-v` (Eager callback executing `version_callback`).
 
-#### `load_config()`
-* **Purpose**: Loads stored configuration settings into environment variables if `~/.documentor/config.env` exists.
+### `load_config()`
+Checks for the presence of `CONFIG_FILE` (`~/.documentor/config.env`). If present, loads its content into environment variables using `dotenv.load_dotenv`.
 
-#### `handle_litellm_error(e: Exception)`
-* **Purpose**: Catches and interprets `litellm.exceptions.APIError` exceptions, formatting them into user-friendly terminal output.
-* **Handled Errors**:
-  * **Authentication/API Key**: Alerts user to missing/invalid API key and suggests running `documentor configure`.
-  * **Context Length Exceeded**: Prompts user to select a model with a larger context window (e.g., `gemini-1.5-pro` or `gpt-4o`).
-  * **Rate Limit Exceeded**: Recommends waiting or upgrading the provider API tier.
-  * **Unhandled LLM Errors**: Prints full exception message.
-* **Exit Code**: Always exits with status code `1`.
-
----
-
-## CLI Commands Reference
-
-### 1. Root Application Callback
-```python
-@app.callback()
-def main(version: bool)
-```
-Provides the general CLI application description.
-* **Options**:
-  * `--version` / `-v`: Displays application version and exits.
+### `handle_litellm_error(e: Exception)`
+Helper function to intercept and categorize errors raised by `litellm`. Prints formatted, color-coded error messages and actionable suggestions to stdout, then terminates execution with status code `1`:
+* **Authentication/API Key Errors**: Instructs the user to run `documentor configure`.
+* **Context Length Exceeded**: Advises switching to a model with a larger context window (e.g., `gemini-1.5-pro` or `gpt-4o`).
+* **Rate Limits**: Suggests waiting or upgrading the API tier.
+* **Uncategorized Errors**: Prints the raw error message.
 
 ---
 
-### 2. `configure` Command
-```python
-@app.command()
-def configure()
-```
-Configures Bring-Your-Own-LLM (BYO-LLM) settings and stores API keys in `~/.documentor/config.env`.
+## Commands Reference
 
-#### Workflow:
-1. Creates directory `~/.documentor` and touches `config.env` if they do not exist.
-2. Iteratively prompts the user for inputs for the following configuration fields:
-   * `MODEL_NAME`
-   * `GEMINI_API_KEY`
-   * `OPENAI_API_KEY`
-   * `ANTHROPIC_API_KEY`
-3. Writes non-empty responses into `config.env` using `set_key`.
-4. Handles file permission errors by notifying the user to check write access.
+### 1. `configure`
+Interactively configures environment variables stored in `~/.documentor/config.env`.
 
----
-
-### 3. `generate` Command
-```python
-@app.command()
-def generate(
-    path: str,
-    model: Optional[str] = None,
-    regenerate: bool = False,
-    resume: bool = True,
-    files: Optional[List[str]] = None
-)
-```
-Executes the document generation pipeline against a designated repository path.
-
-#### Arguments & Options:
-| Name | Type | Argument/Option | Default | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `path` | `str` | Argument | *Required* | Path to target codebase directory. |
-| `model` | `Optional[str]` | `--model` | Environment `MODEL_NAME` or `gemini/gemini-3.6-flash` | LiteLLM-compatible model identifier. |
-| `regenerate` | `bool` | `--regenerate` | `False` | Forces total regeneration, overwriting existing `.md` files. |
-| `resume` | `bool` | `--resume` | `True` | Skips generation for files already present under `documentor_docs/`. |
-| `files` | `Optional[List[str]]` | `--file` / `-f` | `None` | Restricts execution to specific relative file paths. |
-
-#### Internal Execution Flow:
-1. **Load Configuration**: Calls `load_config()`.
-2. **Path Resolution**: Validates that target path exists and is a directory.
-3. **Step 1 (AST Parsing)**: Instantiates `ASTParser(target_path)` and executes `.parse()`.
-4. **Step 2a (Vectorization)**: Initializes `VectorStore` at `<target_path>/.documentor/chroma` and calls `.chunk_and_store(parsed_data)`.
-5. **Step 2b (Dependency Mapping)**: Instantiates `DependencyMapper()`.
-6. **Step 3 (LLM Generator)**:
-   * Instantiates `LLMGenerator(model=model, temperature=0.0)`.
-   * **Resume Check**: If `resume=True` and `regenerate=False`, scans `<target_path>/documentor_docs/**/*.md` to compile a `skip_files` set.
-   * Defines internal progress visualizer `print_progress(msg)` and file writer `write_file(doc_path, content)`.
-   * Invokes `generator.run_full_pipeline(...)` passing parsed data, vector store, dependency mapper, progress callbacks, `skip_files`, and target `only_files`.
+* **Usage**: `documentor configure`
+* **Workflow**:
+  1. Creates the `~/.documentor` directory and touches `config.env` if missing.
+  2. Prompts the user sequentially for values across four fields:
+     * `MODEL_NAME`
+     * `GEMINI_API_KEY`
+     * `OPENAI_API_KEY`
+     * `ANTHROPIC_API_KEY`
+  3. Writes non-empty input values to `config.env` using `python-dotenv`'s `set_key`.
+* **Error Handling**: Catches file creation/write exceptions, prints permission warnings, and exits with code `1`.
 
 ---
 
-### 4. `chat` Command
-```python
-@app.command()
-def chat(
-    question: Optional[str] = None,
-    path: str = ".",
-    model: Optional[str] = None
-)
-```
-Provides Retrieval-Augmented Generation (RAG) query functionality against an indexed vector store.
+### 2. `generate`
+Executes the documentation generation pipeline against a designated repository.
 
-#### Arguments & Options:
-| Name | Type | Argument/Option | Default | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `question` | `Optional[str]` | Argument | `None` | Codebase query. If omitted, starts an interactive terminal session. |
-| `path` | `str` | `--path` | `"."` | Path to repository root containing `.documentor/chroma`. |
-| `model` | `Optional[str]` | `--model` | Environment `MODEL_NAME` or `gemini/gemini-3.6-flash` | Model for answer generation. |
+* **Usage**: `documentor generate <path> [OPTIONS]`
+* **Parameters**:
 
-#### Execution Flow & Prompt Rules:
-1. Verifies existence of Vector Store at `<target_path>/.documentor/chroma`. Exits if not found.
-2. Queries `VectorStore.retrieve(q, n_results=5)` to retrieve context snippets.
-3. Constructs an LLM prompt enforcing three critical rules:
-   * **Rule 1**: Refuse non-codebase, off-topic, or jailbreak questions.
-   * **Rule 2**: Avoid hallucination; state if information is missing from context.
-   * **Rule 3**: Explicitly state referenced code file names directly in the response.
-4. Calls `litellm.completion` (`temperature=0.0`) and prints formatted responses.
-5. Runs either as a single execution (if `question` parameter is supplied) or an interactive loop (terminates on input `exit` or `quit`).
-
----
-
-### 5. `serve` Command
-```python
-@app.command()
-def serve(port: int = 8000)
-```
-Launches the Web UI backend local application via `uvicorn`.
-
-#### Options:
-| Name | Type | Default | Description |
+| Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `port` | `int` | `8000` | Port number on `127.0.0.1` to serve the Web application. |
+| `path` | Argument | *(Required)* | Path to the target repository directory. |
+| `--model` | Option | Environment variable `MODEL_NAME` or `gemini/gemini-3.6-flash` | LiteLLM-compatible model identifier. |
+| `--regenerate` | Option | `False` | Forces full regeneration, ignoring existing documentation files. |
+| `--resume` | Option | `True` | Skips generating documentation for files that already have an existing Markdown file under `documentor_docs`. |
+| `--file`, `-f` | Option | `None` (List of strings) | Specific relative file path(s) to restrict generation to. |
 
-#### Invocation:
-Runs `uvicorn.run("documentor.web.main:app", host="127.0.0.1", port=port, reload=False)`.
+* **Workflow**:
+  1. Calls `load_config()` and resolves the target path.
+  2. **Validation**: Verifies the path exists and is a directory.
+  3. **Step 1 (Parse)**: Instantiates `ASTParser` on the target directory and parses source code.
+  4. **Step 2a (Vectorize)**: Stores code embeddings into a Chroma vector store located at `<repo_path>/.documentor/chroma` using `VectorStore`.
+  5. **Step 2b (Map)**: Instantiates `DependencyMapper`.
+  6. **Step 3 (Generate)**: Instantiates `LLMGenerator` (`temperature=0.0`).
+  7. **Skip Logic**: If `--resume` is active and `--regenerate` is `False`, scans `<repo_path>/documentor_docs` for existing `.md` files and adds relative paths to `skip_files`.
+  8. **Execution**: Invokes `LLMGenerator.run_full_pipeline(...)` with inline progress callbacks (`print_progress`) and file writing callbacks (`write_file`).
 
 ---
 
-## Application Entry Point
+### 3. `chat`
+Performs Retrieval-Augmented Generation (RAG) queries against an indexed codebase.
 
-When executed directly (`python -m documentor.cli.main`), the script invokes the Typer application:
-```python
-if __name__ == "__main__":
-    app()
-```
+* **Usage**: `documentor chat [QUESTION] [OPTIONS]`
+* **Parameters**:
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `question` | Argument | `None` | Question string. If omitted, starts an interactive terminal session. |
+| `--path` | Option | `"."` | Path to the repository context. |
+| `--model` | Option | Environment variable `MODEL_NAME` or `gemini/gemini-3.6-flash` | LiteLLM-compatible model identifier. |
+
+* **Workflow**:
+  1. Calls `load_config()` and checks for the vector database path at `<target_path>/.documentor/chroma`.
+  2. If the vector store does not exist, errors out requesting the user run `documentor generate` first.
+  3. **RAG Logic (`run_query`)**:
+     * Queries `VectorStore.retrieve(q, n_results=5)` for relevant code contexts.
+     * Constructs a system prompt injecting retrieved snippets.
+     * Enforces prompt constraint rules (e.g., reject off-topic questions, decline bug searches, avoid hallucination, require strict filename references).
+     * Invokes `litellm.completion` with `temperature=0.0`.
+     * Displays the generated response.
+  4. **Interactive Mode**: If no `question` argument is supplied, runs a `while True` loop prompting user input until `exit` or `quit` is entered.
+
+---
+
+### 4. `serve`
+Spins up the Documentor Web UI via Uvicorn.
+
+* **Usage**: `documentor serve [OPTIONS]`
+* **Parameters**:
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--port` | Option | `8000` | Local port number to host the application server. |
+
+* **Workflow**:
+  * Calls `uvicorn.run("documentor.web.main:app", host="127.0.0.1", port=port, reload=False)`.

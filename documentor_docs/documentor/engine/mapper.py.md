@@ -1,100 +1,101 @@
-# Module Documentation: `documentor/engine/mapper.py`
+# Technical Documentation: `documentor/engine/mapper.py`
 
 ## Overview
 
-The `documentor/engine/mapper.py` module defines the `DependencyMapper` class, which performs dependency mapping across a set of parsed source code files. It analyzes extracted Code/AST chunk names across files to build a dependency graph that illustrates how different files/modules interact.
+The `documentor/engine/mapper.py` module defines the `DependencyMapper` class. Its primary role is to perform dependency mapping (designated as Step 2b in the pipeline) by mapping relationships and cross-references between different files based on parsed AST chunks and source code content. 
+
+It processes parsed file data to build a dependency graph that details which entities (classes, functions) are defined in each file and which external files a given file depends on.
 
 ---
 
 ## Class: `DependencyMapper`
 
 ### Description
-The `DependencyMapper` class processes parsed file data, catalogs defined entities (classes and functions), and scans source code to determine cross-file dependencies based on entity name references.
+`DependencyMapper` determines how modules and files interact. It catalogs extracted entities across all parsed files and scans the source code of each file to locate cross-references to entities defined in other files.
 
 ---
 
-### Methods
+## Methods
 
-#### `__init__()`
-```python
-def __init__(self):
-    pass
-```
-* **Purpose**: Initializes the `DependencyMapper` instance.
+### `__init__(self)`
+Initializes a new instance of the `DependencyMapper` class. This method currently takes no parameters (other than `self`) and performs no specific setup operations (`pass`).
 
 ---
 
-#### `map_dependencies()`
-```python
-def map_dependencies(self, parsed_data: Dict[str, Any]) -> Dict[str, Any]
-```
+### `map_dependencies(parsed_data: Dict[str, Any]) -> Dict[str, Any]`
 
-* **Purpose**: Generates a dependency graph mapping files to the entities they define and the files they depend on.
-* **Parameters**:
-  * `parsed_data` (`Dict[str, Any]`): A dictionary containing parsed file information. Expected to contain a `"files"` key containing a list of file dictionaries.
-* **Returns**:
-  * `Dict[str, Any]`: A dictionary representing the dependency graph, keyed by file path.
+Builds and returns a graph mapping file paths to their exported entities and cross-file dependencies.
 
----
+#### Parameters
+* **`parsed_data`** (`Dict[str, Any]`): A dictionary containing parsed AST data. It is expected to have a key `"files"`, which holds a list of dictionaries containing file details.
 
-## Processing Steps in `map_dependencies`
-
-The mapping process operates in three primary steps:
-
-### Step 1: Catalog Entities
-1. Iterates over all file dictionaries under `parsed_data["files"]`.
-2. Initializes a graph entry for each file path:
-   ```python
-   graph[path] = {"depends_on": set(), "entities": []}
-   ```
-3. Iterates over each chunk in `file_info["chunks"]`.
-4. If a chunk's `name` exists and is not `"unknown"`:
-   * The entity is mapped to its defining file path (`entities[name] = path`).
-   * The entity name is appended to `graph[path]["entities"]`.
-
-### Step 2: Scan Code for Cross-References
-1. Collects all entity names and sorts them by length in descending order (`sorted(..., key=len, reverse=True)`). This ensures longer entity names are evaluated first.
-2. Iterates over each file in `parsed_data["files"]` and evaluates its source code string (`file_info["code"]`).
-3. For each entity in the sorted entity list:
-   * **Length Filter**: Ignores entities with a name length under 4 characters (`len(name) < 4`) to prevent false positives.
-   * **Cross-File Check**: Skips matching if the entity was defined in the current file being scanned (`entities[name] != path`).
-   * **Regex Word Boundary Match**: Uses `re.search` with `r'\b' + re.escape(name) + r'\b'` to confirm the entity appears as a distinct word in the file's code.
-   * If a match is found, the path of the file defining the entity (`entities[name]`) is added to the current file's `depends_on` set.
-
-### Step 3: Format Output
-Converts all `depends_on` values from Python `set` objects to `list` objects to ensure compatibility with JSON serialization.
-
----
-
-## Data Schema Reference
-
-### Expected Input Schema (`parsed_data`)
-```json
-{
-  "files": [
-    {
-      "path": "path/to/file.py",
-      "code": "source code string...",
-      "chunks": [
-        {
-          "name": "EntityName"
-        }
+  **Expected Input Structure:**
+  ```python
+  {
+      "files": [
+          {
+              "path": "path/to/file.py",
+              "code": "source code string...",
+              "chunks": [
+                  {
+                      "name": "EntityName"
+                  }
+              ]
+          }
       ]
-    }
-  ]
-}
-```
-
-### Output Schema (`graph`)
-```json
-{
-  "path/to/file.py": {
-    "depends_on": [
-      "path/to/dependency_file.py"
-    ],
-    "entities": [
-      "EntityName"
-    ]
   }
-}
-```
+  ```
+
+#### Return Value
+* **`Dict[str, Any]`**: A dictionary representing the dependency graph where each key is a file path and the value is a dictionary containing defined entities and target dependency file paths.
+
+  **Output Structure:**
+  ```python
+  {
+      "path/to/file.py": {
+          "entities": ["EntityName1", "EntityName2"],
+          "depends_on": ["path/to/dependency_file.py"]
+      }
+  }
+  ```
+
+---
+
+## Detailed Algorithm Workflow
+
+The `map_dependencies` method executes in three sequential steps:
+
+### Step 1: Entity Cataloging
+1. Initializes an empty `graph` dictionary and an `entities` mapping dictionary (`entity_name -> file_path`).
+2. Iterates through every file object under `parsed_data["files"]`.
+3. For each file path:
+   * Initializes `graph[path]` with an empty set for `"depends_on"` and an empty list for `"entities"`.
+   * Loops through all code `chunks` in the file.
+   * Extracts the `name` attribute of each chunk.
+   * If `name` exists and is not equal to `"unknown"`:
+     * Stores the mapping `entities[name] = path`.
+     * Appends `name` to `graph[path]["entities"]`.
+
+### Step 2: Cross-Reference Scanning
+1. Sorts all cataloged entity names by character length in **descending order** (`key=len, reverse=True`). Sorting ensures longer names are matched before shorter substrings.
+2. Iterates through each file entry in `parsed_data["files"]`:
+   * Retrieves the source `code` string for the file (defaults to an empty string if missing).
+   * Iterates through the sorted `entity_names`:
+     * **Filter:** Ignores entity names with a length of less than 4 characters (`len(name) < 4`) to minimize false positives.
+     * **Check Ownership:** Checks if `name` is present in `code` and verifies that the entity was **not** defined within the current file (`entities[name] != path`).
+     * **Regex Matching:** Uses a regular expression search with word boundaries (`\b`) around the escaped entity name (`re.search(r'\b' + re.escape(name) + r'\b', code)`) to confirm a whole-word match in the source code.
+     * **Record Dependency:** If matched, adds the entity's source file path (`entities[name]`) into the current file's `"depends_on"` set.
+
+### Step 3: Serialization Normalization
+1. Iterates over all file entries in `graph`.
+2. Converts the `"depends_on"` values from Python `set` objects to `list` objects to ensure compatibility with JSON serialization.
+3. Returns the populated `graph` dictionary.
+
+---
+
+## Key Rules & Heuristics
+
+* **Exclusion of Unknown Entities:** Chunks named `"unknown"` are ignored during the cataloging step.
+* **Minimum Length Limit:** Entities with names shorter than 4 characters (`len(name) < 4`) are skipped during the reference scan to prevent false positives from short identifiers or keywords.
+* **Word Boundary Matching:** Regex search employs `\b` word boundaries to ensure partial string matches within longer identifiers do not count as cross-references.
+* **Self-Dependency Exclusion:** Entities defined within the same file being scanned are excluded from adding a dependency onto the file itself.
