@@ -98,7 +98,7 @@ documentor serve --port 8000
 ```
 Then open `http://localhost:8000` in your browser. The Web UI not only loads the documentation for your current directory (`.`), but it also features a **Full-screen Conversational AI Chat**! 
 
-[Paste your GitHub Video URL here]
+https://github.com/user-attachments/assets/470ee45a-a252-4eb3-8c10-ac33e60230bb
 
 The Web UI chat includes:
 - **Conversational Memory**: The AI remembers the context of your ongoing chat.
