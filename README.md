@@ -41,6 +41,14 @@ documentor configure
 
 ## Usage
 
+### Commands Overview
+Here is a quick summary of all the available commands:
+- `documentor --version`: Show the application's version and exit.
+- `documentor configure`: Configure API keys for the LLM providers.
+- `documentor generate <path>`: Triggers the Core Engine to parse the codebase and generate documentation for the given path. Options include `--model`, `--regenerate`, `--resume`, and `--file`.
+- `documentor chat [question]`: Ask questions against the codebase using Retrieval-Augmented Generation (RAG). Start without a question for an interactive session.
+- `documentor serve`: Spin up the beautiful Web UI locally (defaults to port 8000).
+
 ### 1. Command Line Interface (CLI)
 To generate documentation for a repository, run:
 ```bash
@@ -124,3 +132,20 @@ jobs:
           git diff --quiet && git diff --staged --quiet || git commit -m "docs: Auto-update AI documentation"
           git push
 ```
+
+## FAQ
+
+**What models does Documentor support?**  
+Documentor uses LiteLLM, so it supports virtually any major model: OpenAI, Anthropic, Gemini, DeepSeek, and even local models via Ollama. 
+
+**What programming languages are supported?**  
+We currently parse code using Tree-sitter, which allows us to natively understand Python, JavaScript, TypeScript, Go, Java, Rust, C, C++, and C#.
+
+**How do I skip certain files or directories from being documented?**  
+By default, Documentor automatically ignores `.git`, `node_modules`, `dist`, `.env` files, logs, and git-ignored files. If you need to ignore specific custom directories, create a `.docignore` file in your repository root.
+
+**Can I only regenerate docs for specific files?**  
+Yes, you can use the `-f` flag to target specific files (e.g., `documentor generate . -f src/utils.py`). 
+
+**Is my codebase safe?**  
+Your code is only sent to the LLM you configure in `documentor configure`. If you choose to configure a local LLM through Ollama, your code never leaves your machine.
