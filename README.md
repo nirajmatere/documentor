@@ -1,6 +1,6 @@
 # Documentor
 
-An enterprise-grade AI documentation suite. It ingests a codebase, parses it semantically, generates accurate documentation using LLMs, and serves it via CLI, Web UI, and CI/CD pipelines.
+An AI documentation suite. It ingests a codebase, parses it semantically, generates accurate documentation using LLMs, and serves it via CLI, Web UI, and CI/CD pipelines.
 
 ## Installation
 
@@ -69,9 +69,9 @@ If you only want to generate or regenerate documentation for specific files (for
 documentor generate . -f src/main.py -f src/utils.py
 ```
 
-Generate using Anthropic's Claude (by overriding your default model):
+Generate using a specific model (by overriding your default model):
 ```bash
-documentor generate . --model claude-3-5-sonnet-20240620
+documentor generate . --model gemini/gemini-3.6-flash
 ```
 
 ### 2. Intelligent AI Assistant (Terminal)
@@ -98,13 +98,15 @@ documentor serve --port 8000
 ```
 Then open `http://localhost:8000` in your browser. The Web UI not only loads the documentation for your current directory (`.`), but it also features a **Full-screen Conversational AI Chat**! 
 
+[Paste your GitHub Video URL here]
+
 The Web UI chat includes:
 - **Conversational Memory**: The AI remembers the context of your ongoing chat.
 - **Mermaid Diagram Support**: Ask the AI to draw architectural diagrams, and it will render them as beautiful SVG graphics right in the chat!
 - **Clean Layout**: Features a light/dark theme toggle, a collapsible sidebar, and a distraction-free fullscreen chat mode.
 
 ### 3. GitHub Action (CI/CD)
-Documentor comes packaged as a lightning-fast Docker Action. You can automate documentation generation on your Pull Requests by creating `.github/workflows/documentor.yml` in your target repository:
+Documentor comes packaged as a Docker Action. You can automate documentation generation on your Pull Requests by creating `.github/workflows/documentor.yml` in your target repository:
 
 ```yaml
 name: Generate AI Docs

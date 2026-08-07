@@ -2,10 +2,10 @@ venv/
 .venv/
 __pycache__/
 *.pyc
-.documentor/
-scratch/
-.env
-config.env
-.pytest_cache/
+.git/
+.github/
 dist/
-initial_prompt.txt
+docs/
+scratch/
+.pytest_cache/
+tests/
