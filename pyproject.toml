@@ -4,10 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "documentor-ai"
-version = "0.1.21"
+version = "0.1.22"
 description = "Enterprise-grade AI documentation suite"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
 authors = [
     { name = "Niraj Matere", email = "nirajmatere2112@gmail.com" }
 ]
