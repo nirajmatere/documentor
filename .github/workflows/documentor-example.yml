@@ -19,6 +19,7 @@ jobs:
         with:
           # Fetch full history so Documentor can analyze everything
           fetch-depth: 0
+          ref: ${{ github.ref_name }}
       
       - name: Run Documentor Action
         uses: ./ # Note: For external repos, this should be 'nirajmatere/documentor@main'
