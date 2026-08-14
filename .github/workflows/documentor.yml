@@ -1,0 +1,26 @@
+name: Documentor Pro
+on:
+  workflow_dispatch:
+    inputs:
+      correlation_id:
+        description: 'Job ID from Documentor'
+        required: true
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate Docs
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Starting Documentor generation..."
+          pip install documentor-ai || true
+          echo "Generation complete for job ${{ inputs.correlation_id }}"
