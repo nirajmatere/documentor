@@ -23,5 +23,5 @@ jobs:
         run: |
           echo "Starting Documentor generation..."
           pip install documentor-ai || true
-          documentor generate --model gemini/gemini-3.6-flash
+          documentor generate . --model gemini/gemini-3.6-flash
           echo "Generation complete for job ${{ inputs.correlation_id }}"
