@@ -21,15 +21,19 @@ jobs:
           fetch-depth: 0
       
       - name: Run Documentor Action
-        uses: ./ # Note: For external repos, this should be 'owner/documentor@main'
+        uses: ./ # Note: For external repos, this should be 'nirajmatere/documentor@main'
+        # Optionally override the model (defaults to gemini/gemini-3.6-flash if not set):
         # with:
-        #   model: 'gpt-4o-mini'
+        #   model: 'gemini/gemini-1.5-pro'
         env:
-          # Important: Map your Repository Secrets to the environment variables expected by your chosen model
-          # The default model is gemini/gemini-3.6-flash. If you are using OpenAI, set MODEL_NAME explicitly:
-          MODEL_NAME: 'gpt-4o-mini'
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Map your Repository Secret to the environment variable expected by your chosen model.
+          # Default model is gemini/gemini-3.6-flash — just add GEMINI_API_KEY and you're done.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # To use OpenAI instead, set MODEL_NAME and add OPENAI_API_KEY:
+          # MODEL_NAME: 'gpt-4o-mini'
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # To use Anthropic instead:
+          # MODEL_NAME: 'claude-3-5-sonnet-20241022'
           # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       
       - name: Commit Generated Documentation

@@ -124,9 +124,11 @@ jobs:
           fetch-depth: 0
       - uses: nirajmatere/documentor@main
         env:
-          # Define your model and map secrets appropriately
-          MODEL_NAME: 'gemini/gemini-3.6-flash'
+          # Add your Gemini API key secret — the default model is gemini/gemini-3.6-flash.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: override the model. Must also add the matching API key secret.
+          # MODEL_NAME: 'gpt-4o-mini'
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
