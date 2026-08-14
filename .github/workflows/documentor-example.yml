@@ -43,7 +43,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # Add the generated artifacts
+          # All generated files are inside documentor_docs/
           git add documentor_docs/
           
           # Only commit if there are actually changes
