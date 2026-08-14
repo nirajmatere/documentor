@@ -19,9 +19,8 @@ jobs:
       - name: Generate Docs
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          MODEL: gemini/gemini-1.5-flash
         run: |
           echo "Starting Documentor generation..."
-          pip install documentor-ai || true
-          documentor generate . --model gemini/gemini-1.5-flash
+          pip install documentor-ai
+          documentor generate .
           echo "Generation complete for job ${{ inputs.correlation_id }}"
